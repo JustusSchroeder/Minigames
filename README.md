@@ -2,15 +2,15 @@
 
 A small GitHub Pages arcade with more than one browser game.
 
-**Live:** [https://phonedmonkey10.github.io/Minigames/](https://phonedmonkey10.github.io/Minigames/)
+**Live:** [https://justusschroeder.github.io/Minigames/](https://justusschroeder.github.io/Minigames/)
 
 ## Games
 
 | Game | Folder | Play |
 | --- | --- | --- |
-| Neon Clash (rock paper scissors) | `neon-clash/` | [Open](https://phonedmonkey10.github.io/Minigames/neon-clash/) |
-| Castle defense | `castle-defense/` | [Open](https://phonedmonkey10.github.io/Minigames/castle-defense/) |
-| Mini 8-Ball | `mini-8-ball/` | [Open](https://phonedmonkey10.github.io/Minigames/mini-8-ball/) |
+| Neon Clash (rock paper scissors) | `neon-clash/` | [Open](https://justusschroeder.github.io/Minigames/neon-clash/) |
+| Castle defense | `castle-defense/` | [Open](https://justusschroeder.github.io/Minigames/castle-defense/) |
+| Mini 8-Ball | `mini-8-ball/` | [Open](https://justusschroeder.github.io/Minigames/mini-8-ball/) |
 
 The home page lists each game as a card, with a preview image and an English / German language toggle.
 

@@ -5,7 +5,7 @@ A browser castle-defense game. You fly a free camera over an island meadow, plac
 Play it from the hub card **Castle defense**, or open this folder directly:
 
 - Local: [http://127.0.0.1:8765/castle-defense/](http://127.0.0.1:8765/castle-defense/)
-- GitHub Pages: [https://phonedmonkey10.github.io/Minigames/castle-defense/](https://phonedmonkey10.github.io/Minigames/castle-defense/)
+- GitHub Pages: [https://justusschroeder.github.io/Minigames/castle-defense/](https://justusschroeder.github.io/Minigames/castle-defense/)
 
 You need a static file server (modules and an import map). Serving the folder with `python3 -m http.server` is enough. There is no build step.
 
