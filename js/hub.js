@@ -10,6 +10,8 @@ const I18N = {
     neonBlurb: "Rock, paper, scissors. Ten rounds against the computer.",
     poolTitle: "Mini 8-Ball",
     poolBlurb: "8-ball pool against a bot. Drag back from the cue ball to shoot.",
+    keepTitle: "Castle defense",
+    keepBlurb: "Hold the meadow. Fly the camera, place defenses, and survive the waves.",
     langLabel: "Language",
   },
   de: {
@@ -21,6 +23,8 @@ const I18N = {
     neonBlurb: "Schere, Stein, Papier. Zehn Runden gegen den Computer.",
     poolTitle: "Mini 8-Ball",
     poolBlurb: "8-Ball gegen einen Bot. Ziehe von der weißen Kugel weg, um zu stoßen.",
+    keepTitle: "Castle defense",
+    keepBlurb: "Halte die Wiese. Flieg mit der Kamera, bau Verteidigung und übersteh die Wellen.",
     langLabel: "Sprache",
   },
 };

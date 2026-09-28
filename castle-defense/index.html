@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Castle defense</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app">
+      <canvas id="view"></canvas>
+      <div id="crosshair" class="crosshair" hidden><i></i><b></b></div>
+      <p id="look-prompt" class="look-prompt" hidden>Click the meadow to look around</p>
+
+      <header class="hud top">
+        <p id="hint" class="hint">Place buildings, then start the waves.</p>
+        <div class="meters">
+          <div class="meter gold" title="Gold">
+            <span>Gold</span>
+            <strong id="gold">180</strong>
+            <small id="gold-cap"></small>
+          </div>
+          <div class="meter wave" title="Wave">
+            <span>Wave</span>
+            <strong id="wave">—</strong>
+          </div>
+          <div class="meter keep" title="Keep health">
+            <span>Keep</span>
+            <div class="hp-track"><i id="keep-fill"></i></div>
+            <strong id="keep-hp">100</strong>
+          </div>
+        </div>
+        <div class="hud-actions">
+          <button type="button" id="btn-mute" class="ghost">Mute</button>
+          <button type="button" id="btn-start" class="go">Start waves</button>
+        </div>
+      </header>
+
+      <aside id="inspect" class="inspect" hidden>
+        <p id="inspect-title" class="inspect-title">Building</p>
+        <p id="inspect-meta" class="inspect-meta"></p>
+        <div id="inspect-actions" class="inspect-actions"></div>
+      </aside>
+
+      <nav id="build-bar" class="build-bar" aria-label="Buildings">
+        <button type="button" data-build="wall">
+          <span class="hotkey">1</span>
+          <i class="swatch wall"></i>
+          Wall <em>10g+ · draw</em>
+        </button>
+        <button type="button" data-build="crossbow">
+          <span class="hotkey">2</span>
+          <i class="swatch crossbow"></i>
+          Crossbow <em>40g · 1×1</em>
+        </button>
+        <button type="button" data-build="cannon">
+          <span class="hotkey">3</span>
+          <i class="swatch cannon"></i>
+          Cannon <em>70g · 1×1</em>
+        </button>
+        <button type="button" data-build="farm">
+          <span class="hotkey">4</span>
+          <i class="swatch farm"></i>
+          Farm <em>50g · 0/6</em>
+        </button>
+        <button type="button" data-build="barracks">
+          <span class="hotkey">5</span>
+          <i class="swatch barracks"></i>
+          Barracks <em>80g · 1×1</em>
+        </button>
+      </nav>
+
+      <div id="menu" class="overlay">
+        <div class="card">
+          <p class="kicker">Wave defense</p>
+          <h2>Castle defense</h2>
+          <ul>
+            <li>Mouse looks. W and S fly along the camera, A and D strafe. Space up, Shift down, double-tap W sprints.</li>
+            <li>The crosshair picks the ground. Keys 1–5 or the scroll wheel choose a building. Esc frees the mouse.</li>
+            <li>Walls are drawn: click a start, then click the other end. Aim near a wall tip to snap a joint. Longer walls cost less per piece.</li>
+            <li>Farms make gold (max 6). Open any barracks for a troop menu. Drag a box to select troops, then click the ground to send them. Q deselects, E selects all.</li>
+            <li>Build freely, then press Start waves. Survive 10 waves to win.</li>
+          </ul>
+          <button type="button" id="btn-play" class="go">Play</button>
+        </div>
+      </div>
+
+      <div id="end" class="overlay" hidden>
+        <div class="card">
+          <p id="end-kicker" class="kicker">Match over</p>
+          <h2 id="end-title">Victory</h2>
+          <p id="end-body">You held the meadow.</p>
+          <button type="button" id="btn-restart" class="go">Restart</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.addEventListener("error", (event) => {
+        const hint = document.getElementById("hint");
+        if (hint) hint.textContent = event.message || "Something failed to load.";
+        document.documentElement.dataset.gk = "error";
+      });
+    </script>
+    <script type="module" src="js/game.js"></script>
+  </body>
+</html>
