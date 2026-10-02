@@ -26,27 +26,34 @@
       <p id="look-prompt" class="look-prompt" hidden>Click the meadow to look around</p>
 
       <header class="hud top">
+        <div class="hud-row">
+          <div class="meters">
+            <div class="meter gold" title="Gold">
+              <span>Gold</span>
+              <strong id="gold">360</strong>
+              <small id="gold-cap"></small>
+            </div>
+            <div class="meter army" title="Army">
+              <span>Army</span>
+              <div class="hp-track army-hp"><i id="army-fill"></i></div>
+              <strong id="army">0/0</strong>
+            </div>
+            <div class="meter wave" title="Wave">
+              <span>Wave</span>
+              <strong id="wave">—</strong>
+            </div>
+            <div class="meter stronghold" title="Stronghold health">
+              <span>Stronghold</span>
+              <div class="hp-track"><i id="keep-fill"></i></div>
+              <strong id="keep-hp">100</strong>
+            </div>
+          </div>
+          <div class="hud-actions">
+            <button type="button" id="btn-mute" class="ghost">Mute</button>
+            <button type="button" id="btn-start" class="go">Start waves</button>
+          </div>
+        </div>
         <p id="hint" class="hint">Place buildings, then start the waves.</p>
-        <div class="meters">
-          <div class="meter gold" title="Gold">
-            <span>Gold</span>
-            <strong id="gold">180</strong>
-            <small id="gold-cap"></small>
-          </div>
-          <div class="meter wave" title="Wave">
-            <span>Wave</span>
-            <strong id="wave">—</strong>
-          </div>
-          <div class="meter keep" title="Keep health">
-            <span>Keep</span>
-            <div class="hp-track"><i id="keep-fill"></i></div>
-            <strong id="keep-hp">100</strong>
-          </div>
-        </div>
-        <div class="hud-actions">
-          <button type="button" id="btn-mute" class="ghost">Mute</button>
-          <button type="button" id="btn-start" class="go">Start waves</button>
-        </div>
       </header>
 
       <aside id="inspect" class="inspect" hidden>
@@ -58,28 +65,43 @@
       <nav id="build-bar" class="build-bar" aria-label="Buildings">
         <button type="button" data-build="wall">
           <span class="hotkey">1</span>
-          <i class="swatch wall"></i>
-          Wall <em>10g+ · draw</em>
+          <i class="icon wall"></i>
+          Wall <em>10g+</em>
         </button>
         <button type="button" data-build="crossbow">
           <span class="hotkey">2</span>
-          <i class="swatch crossbow"></i>
-          Crossbow <em>40g · 1×1</em>
+          <i class="icon crossbow"></i>
+          Crossbow <em>40g</em>
         </button>
         <button type="button" data-build="cannon">
           <span class="hotkey">3</span>
-          <i class="swatch cannon"></i>
-          Cannon <em>70g · 1×1</em>
+          <i class="icon cannon"></i>
+          Cannon <em>70g</em>
+        </button>
+        <button type="button" data-build="mage">
+          <span class="hotkey">4</span>
+          <i class="icon mage"></i>
+          Mage <em>85g</em>
+        </button>
+        <button type="button" data-build="spikes">
+          <span class="hotkey">5</span>
+          <i class="icon spikes"></i>
+          Spikes <em>22g</em>
         </button>
         <button type="button" data-build="farm">
-          <span class="hotkey">4</span>
-          <i class="swatch farm"></i>
-          Farm <em>50g · 0/6</em>
+          <span class="hotkey">6</span>
+          <i class="icon farm"></i>
+          Farm <em>50g</em>
         </button>
         <button type="button" data-build="barracks">
-          <span class="hotkey">5</span>
-          <i class="swatch barracks"></i>
-          Barracks <em>80g · 1×1</em>
+          <span class="hotkey">7</span>
+          <i class="icon barracks"></i>
+          Barracks <em>80g</em>
+        </button>
+        <button type="button" data-build="workshop">
+          <span class="hotkey">8</span>
+          <i class="icon workshop"></i>
+          Workshop <em>65g</em>
         </button>
       </nav>
 
@@ -89,9 +111,12 @@
           <h2>Castle defense</h2>
           <ul>
             <li>Mouse looks. W and S fly along the camera, A and D strafe. Space up, Shift down, double-tap W sprints.</li>
-            <li>The crosshair picks the ground. Keys 1–5 or the scroll wheel choose a building. Esc frees the mouse.</li>
+            <li>The crosshair picks the ground. Keys 1–8 or the scroll wheel choose a building. Esc frees the mouse.</li>
             <li>Walls are drawn: click a start, then click the other end. Aim near a wall tip to snap a joint. Longer walls cost less per piece.</li>
-            <li>Farms make gold (max 6). Open any barracks for a troop menu. Drag a box to select troops, then click the ground to send them. Q deselects, E selects all.</li>
+            <li>Other buildings drop wherever you click on open grass, same as wall points. They will not overlap walls, the keep, or each other.</li>
+            <li>Farms make gold (max 6). Mage towers slow packs. Spike pits hurt anything that walks over them. A workshop repairs nearby walls and upgrades troops — upgraded troops wear better armor.</li>
+            <li>Click a building to inspect it, then upgrade that building. Walls, towers, farms, barracks, and workshops all gain stronger stats and a better look, up to level 3.</li>
+            <li>Open any barracks for a troop menu. Drag a box to select troops, then click the ground to send them. Q deselects, E selects all.</li>
             <li>Build freely, then press Start waves. Survive 10 waves to win.</li>
           </ul>
           <button type="button" id="btn-play" class="go">Play</button>

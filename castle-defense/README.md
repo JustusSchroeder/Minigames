@@ -1,6 +1,6 @@
 # Castle defense
 
-A browser castle-defense game. You fly a free camera over an island meadow, place walls and towers around a keep, then survive **10 waves** of enemies that land from the shore and path to the keep.
+A browser castle-defense game. You fly a free camera over an island meadow, place walls and towers around a stronghold, then survive **10 waves** of enemies that land from the shore and path to the stronghold.
 
 Play it from the hub card **Castle defense**, or open this folder directly:
 
@@ -14,11 +14,11 @@ You need a static file server (modules and an import map). Serving the folder wi
 1. Press **Play**. The mouse locks to the meadow.
 2. Place farms, barracks, walls, and towers on **grass**.
 3. Press **Start waves** when you are ready.
-4. Keep the keep’s health above 0 through all 10 waves.
+4. Keep the stronghold’s health above 0 through all 10 waves.
 
 You start with **180 gold**. During prep, gold cannot go above **400**. After waves start, that cap is lifted. Selling a building refunds its full cost.
 
-**Win:** clear wave 10. **Lose:** the keep reaches 0 HP.
+**Win:** clear wave 10. **Lose:** the stronghold reaches 0 HP.
 
 ### Camera
 
@@ -40,7 +40,7 @@ Click the meadow to lock the mouse.
 
 The crosshair picks a point on the ground. Keys **1–5** or the **scroll wheel** choose a building. Click a placed building to inspect it (sell, or open the barracks troop menu).
 
-You can only **build on grass**. Beach, shallows, forest, rocks, the keep, and occupied tiles are blocked.
+You can only **build on grass**. Beach, shallows, forest, rocks, the stronghold, and occupied tiles are blocked.
 
 | Key | Building | Cost | HP | Notes |
 | --- | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ Walls are not single tiles. Click a start point, then click the other end.
 - Minimum length: about 0.7 tiles. Maximum: 14 tiles.
 - Aim near an existing wall tip to snap a joint.
 - Each wall is split into pieces. Longer walls cost **less per piece**: 10, then 8, 6, 5, then 4 gold for every piece after that.
-- Enemies cannot walk through walls. They smash the nearest blocking wall (or the keep) instead of walking around if the wall sits on their path.
+- Enemies cannot walk through walls. They smash the nearest blocking wall (or the stronghold) instead of walking around if the wall sits on their path.
 
 ### Army
 
@@ -81,7 +81,7 @@ Click grass while a barracks is selected to set that hall's **rally**. Idle troo
 
 ### Enemies
 
-Enemies spawn in the **shallows** around the island and path over beach, grass, and forest toward the keep. They attack walls that block them, then the keep.
+Enemies spawn in the **shallows** around the island and path over beach, grass, and forest toward the stronghold. They attack walls that block them, then the stronghold.
 
 | Type | HP | Damage | Speed | Gold | Role |
 | --- | --- | --- | --- | --- | --- |
@@ -123,7 +123,7 @@ The map is a tile grid (320×320 tiles, 2 units each) with an oval island in the
 | Rock | Grey shore blobs enemies walk around | No | No |
 | Sea | Open water | No | No |
 
-The keep occupies four grass tiles near the center. Enemies land from spawn tiles in the shallows all around the coast.
+The stronghold occupies four grass tiles near the center. Enemies land from spawn tiles in the shallows all around the coast.
 
 ## Files
 
@@ -138,9 +138,9 @@ castle-defense/
   js/view3d.js    Three.js scene, camera, meshes
 ```
 
-- **`world.js`** — Island shape, terrain kinds, keep and spawn tiles, A\* pathfinding, wall segments, build rules.
+- **`world.js`** — Island shape, terrain kinds, stronghold and spawn tiles, A\* pathfinding, wall segments, build rules.
 - **`game.js`** — Gold, buildings, troops, enemies, projectiles, wave queue, pointer-lock input, Web Audio beeps.
-- **`view3d.js`** — Ground mesh and color map, trees, rocks, keep, buildings, units, and the flying camera.
+- **`view3d.js`** — Ground mesh and color map, trees, rocks, stronghold, buildings, units, and the flying camera.
 
 ## Debug
 

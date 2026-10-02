@@ -1,4 +1,4 @@
-import { createView3D } from "./view3d.js";
+import { createView3D } from "./view3d.js?v=2";
 import {
   createWorld,
   tileCenter,
@@ -10,9 +10,6 @@ import {
   isSpawnTile,
   TILE,
   ROWS,
-  footprintOrigin,
-  footprintTiles,
-  footprintCenter,
   keepCenter,
   WALL_HALF,
   WALL_MIN_LEN,
@@ -20,11 +17,12 @@ import {
   wallPieces,
   wallChunkCount,
   tilesTouchedByWall,
+  tilesTouchedByCircle,
   distToSegment,
-} from "./world.js";
+} from "./world.js?v=2";
 
-const START_GOLD = 180;
-const PREP_GOLD_CAP = 400;
+const START_GOLD = 360;
+const PREP_GOLD_CAP = 540;
 const KEEP_MAX_HP = 100;
 const SELL_REFUND = 1;
 const HOUSING_PER_BARRACKS = 20;
@@ -33,12 +31,16 @@ const WAVE_COUNT = 10;
 const MAX_ENEMIES = 640;
 const FORMATION_GAP = 0.48;
 
+const UPGRADE_MAX = 3;
 const BUILDINGS = {
   wall: { name: "Wooden Wall", cost: 10, hp: 70, tilesW: 1, tilesH: 1, draw: true },
-  crossbow: { name: "Crossbow", cost: 40, hp: 60, range: 5.2, fireRate: 0.55, damage: 10, projectile: "bolt", speed: 18, tilesW: 1, tilesH: 1 },
-  cannon: { name: "Cannon", cost: 70, hp: 70, range: 5.0, fireRate: 1.7, damage: 6, splash: 1.5, projectile: "ball", speed: 14, tilesW: 1, tilesH: 1 },
-  farm: { name: "Farm", cost: 50, hp: 25, goldPerSec: 2, tilesW: 1, tilesH: 1 },
-  barracks: { name: "Barracks", cost: 80, hp: 80, tilesW: 1, tilesH: 1 },
+  crossbow: { name: "Crossbow", cost: 40, hp: 60, range: 5.2, fireRate: 0.55, damage: 10, projectile: "bolt", speed: 18, tilesW: 1, tilesH: 1, radius: 0.9 },
+  cannon: { name: "Cannon", cost: 70, hp: 70, range: 5.0, fireRate: 1.7, damage: 6, splash: 1.5, projectile: "ball", speed: 14, tilesW: 1, tilesH: 1, radius: 0.95 },
+  mage: { name: "Mage tower", cost: 85, hp: 55, range: 4.6, fireRate: 1.2, damage: 5, splash: 1.05, slow: 2.2, projectile: "spark", speed: 16, tilesW: 1, tilesH: 1, radius: 0.85 },
+  spikes: { name: "Spike pit", cost: 22, hp: 32, damagePerSec: 8, tilesW: 1, tilesH: 1, radius: 0.85 },
+  farm: { name: "Farm", cost: 50, hp: 25, goldPerSec: 1.5, tilesW: 1, tilesH: 1, radius: 1.05 },
+  barracks: { name: "Barracks", cost: 80, hp: 80, tilesW: 1, tilesH: 1, radius: 1.05 },
+  workshop: { name: "Workshop", cost: 65, hp: 50, repairPerSec: 10, repairRange: 4.2, tilesW: 1, tilesH: 1, radius: 1.0 },
 };
 
 const TROOP_ORDER = ["spearman", "slinger", "raider", "knight", "warden"];
@@ -56,6 +58,9 @@ const ENEMIES = {
   runner: { hp: 5, damage: 1, speed: 4.7, gold: 1, range: 0.9 },
   archer: { hp: 12, damage: 2, speed: 2.4, gold: 2, range: 2.4 },
   ogre: { hp: 90, damage: 8, speed: 1.2, gold: 10, range: 1.15 },
+  bat: { hp: 6, damage: 1, speed: 5.1, gold: 2, range: 0.85, fly: true },
+  climber: { hp: 14, damage: 2, speed: 2.55, gold: 2, range: 0.95, climb: true },
+  ram: { hp: 58, damage: 2, speed: 1.22, gold: 6, range: 1.15, siege: true, wallDamage: 12, keepDamage: 9 },
 };
 
 function spawnQueueFor(waveIndex) {
@@ -80,17 +85,20 @@ function spawnQueueFor(waveIndex) {
     () => {
       ring("goblin", 32, 0.25, 8);
       ring("brute", 8, 1.4, 4, 2);
+      ring("bat", 10, 2.2, 5, 3);
       ring("goblin", 24, 8, 6, 1);
     },
     () => {
       ring("goblin", 28, 0.25, 8);
       ring("runner", 18, 0.6, 6, 1);
+      ring("bat", 14, 1.4, 6, 4);
       ring("goblin", 24, 7, 7, 2);
       ring("runner", 16, 7.8, 5, 3);
     },
     () => {
       ring("goblin", 32, 0.2, 8);
       ring("brute", 8, 1.1, 4);
+      ring("climber", 10, 1.4, 5, 3);
       ring("runner", 20, 1.6, 6, 2);
       ring("goblin", 28, 8.5, 8, 1);
     },
@@ -98,6 +106,7 @@ function spawnQueueFor(waveIndex) {
       ring("goblin", 30, 0.2, 8);
       ring("archer", 8, 0.8, 4, 1);
       ring("brute", 8, 1.4, 4, 2);
+      ring("climber", 12, 2, 6, 4);
       ring("goblin", 26, 8, 8, 3);
       ring("archer", 8, 8.6, 4);
     },
@@ -105,22 +114,29 @@ function spawnQueueFor(waveIndex) {
       ring("goblin", 36, 0.2, 10);
       ring("runner", 18, 0.7, 6, 1);
       ring("brute", 10, 1.3, 5, 2);
+      ring("ram", 2, 1.5, 2, 5);
       ring("archer", 8, 1.8, 4, 3);
+      ring("bat", 12, 3, 6, 2);
       ring("goblin", 28, 9, 8, 4);
     },
     () => {
       ring("goblin", 40, 0.15, 10);
       ring("ogre", 1, 0.4, 2);
+      ring("ram", 2, 0.8, 2, 4);
       ring("brute", 12, 1.2, 6, 1);
+      ring("climber", 10, 2.4, 5, 3);
       ring("goblin", 32, 8.5, 8, 2);
       ring("runner", 20, 9, 6, 3);
     },
     () => {
       ring("goblin", 44, 0.12, 12);
       ring("ogre", 1, 0.5, 3);
+      ring("ram", 3, 0.7, 3, 6);
       ring("brute", 12, 1.1, 6, 1);
       ring("archer", 10, 1.6, 5, 2);
       ring("runner", 22, 2, 7, 3);
+      ring("bat", 16, 3.2, 8, 4);
+      ring("climber", 12, 4, 6, 5);
       ring("goblin", 36, 10, 10, 4);
       ring("ogre", 1, 10.4, 2, 5);
     },
@@ -248,11 +264,87 @@ export function createGame(canvas, ui) {
       spawnQueue: [],
       spawned: 0,
       spawnLane: 0,
+      upgrades: Object.fromEntries(TROOP_ORDER.map((k) => [k, 0])),
       world: createWorld(),
     };
   }
 
-  const HOTBAR = ["wall", "crossbow", "cannon", "farm", "barracks"];
+  const HOTBAR = ["wall", "crossbow", "cannon", "mage", "spikes", "farm", "barracks", "workshop"];
+
+  function troopLevel(kind) {
+    return state.upgrades[kind] || 0;
+  }
+
+  function troopDef(kind) {
+    const base = TROOPS[kind];
+    if (!base) return null;
+    const lv = troopLevel(kind);
+    const hpMul = 1 + lv * 0.28;
+    const dmgMul = 1 + lv * 0.32;
+    return {
+      ...base,
+      hp: Math.round(base.hp * hpMul),
+      damage: Math.max(1, Math.round(base.damage * dmgMul)),
+      range: +(base.range * (1 + lv * 0.08)).toFixed(2),
+      cooldown: +(base.cooldown * (1 - lv * 0.08)).toFixed(2),
+    };
+  }
+
+  function buildingStats(kind, level = 0) {
+    const base = BUILDINGS[kind];
+    if (!base) return null;
+    const lv = level || 0;
+    const stats = {
+      ...base,
+      hp: Math.round(base.hp * (1 + lv * 0.38)),
+    };
+    if (base.damage) stats.damage = Math.max(1, Math.round(base.damage * (1 + lv * 0.3)));
+    if (base.range) stats.range = +(base.range * (1 + lv * 0.1)).toFixed(2);
+    if (base.fireRate) stats.fireRate = +(base.fireRate * (1 - lv * 0.1)).toFixed(2);
+    if (base.splash) stats.splash = +(base.splash * (1 + lv * 0.12)).toFixed(2);
+    if (base.slow) stats.slow = +(base.slow * (1 + lv * 0.18)).toFixed(2);
+    if (base.speed) stats.speed = +(base.speed * (1 + lv * 0.06)).toFixed(2);
+    if (base.damagePerSec) stats.damagePerSec = Math.round(base.damagePerSec * (1 + lv * 0.32));
+    if (base.goldPerSec) stats.goldPerSec = +(base.goldPerSec * (1 + lv * 0.4)).toFixed(2);
+    if (base.repairPerSec) stats.repairPerSec = Math.round(base.repairPerSec * (1 + lv * 0.35));
+    if (base.repairRange) stats.repairRange = +(base.repairRange * (1 + lv * 0.12)).toFixed(2);
+    if (kind === "barracks") stats.housing = HOUSING_PER_BARRACKS + lv * 6;
+    return stats;
+  }
+
+  function wallGroupOf(b) {
+    if (!b || b.kind !== "wall") return b ? [b] : [];
+    const gid = b.wallGroup ?? b.id;
+    return state.buildings.filter((item) => item.kind === "wall" && (item.wallGroup ?? item.id) === gid);
+  }
+
+  function pieceUpgradeCost(kind, level) {
+    if (level >= UPGRADE_MAX) return 0;
+    if (kind === "wall") return Math.round(6 * (1.6 + level * 1.2));
+    return Math.round(BUILDINGS[kind].cost * (2.2 + level * 1.8));
+  }
+
+  function buildingUpgradeCost(b) {
+    const members = b.kind === "wall" ? wallGroupOf(b) : [b];
+    return members.reduce((sum, item) => sum + pieceUpgradeCost(item.kind, item.level || 0), 0);
+  }
+
+  function buildingName(kind, level = 0) {
+    const base = BUILDINGS[kind]?.name || kind;
+    const lv = level || 0;
+    return lv ? `${base} · Lv ${lv}` : base;
+  }
+
+  function upgradeCost(kind) {
+    const lv = troopLevel(kind);
+    return Math.round(TROOPS[kind].cost * (3 + lv * 2.5));
+  }
+
+  function unitIgnoresWalls(unit) {
+    if (unit.team === "ally") return true;
+    const def = ENEMIES[unit.kind];
+    return Boolean(def?.fly || def?.climb);
+  }
 
   function playing() {
     return state.phase === "prep" || state.phase === "combat" || state.phase === "between";
@@ -382,9 +474,16 @@ export function createGame(canvas, ui) {
         bestD = d;
       }
     }
-    if (best) return best;
-    const tile = worldToTile(x, z);
-    return buildingAt(tile.c, tile.r);
+    for (const b of state.buildings) {
+      if (b.kind === "wall") continue;
+      const rad = (b.radius ?? stampRadius(b.kind)) + 0.2;
+      const d = Math.hypot(x - b.x, z - b.z);
+      if (d < rad && d < bestD) {
+        best = b;
+        bestD = d;
+      }
+    }
+    return best;
   }
 
   function reachBuilding(from, b) {
@@ -500,6 +599,7 @@ export function createGame(canvas, ui) {
         yaw: piece.yaw,
         length: piece.length,
         cost: wallPieceCost(i),
+        level: 0,
         hp: BUILDINGS.wall.hp,
         maxHp: BUILDINGS.wall.hp,
         cooldown: 0,
@@ -515,25 +615,6 @@ export function createGame(canvas, ui) {
     return true;
   }
 
-  function tilesFor(kind, hoverC, hoverR) {
-    const def = BUILDINGS[kind];
-    const origin = footprintOrigin(hoverC, hoverR, def.tilesW, def.tilesH);
-    return {
-      origin,
-      tiles: footprintTiles(origin.c, origin.r, def.tilesW, def.tilesH),
-      center: footprintCenter(origin.c, origin.r, def.tilesW, def.tilesH),
-      tilesW: def.tilesW,
-      tilesH: def.tilesH,
-    };
-  }
-
-  function unitAt(c, r) {
-    return (
-      state.troops.find((t) => t.c === c && t.r === r) ||
-      state.enemies.find((e) => e.c === c && e.r === r)
-    );
-  }
-
   function countKind(kind) {
     return state.buildings.filter((b) => b.kind === kind).length;
   }
@@ -543,7 +624,37 @@ export function createGame(canvas, ui) {
     return true;
   }
 
-  function placeBuilding(kind, c, r) {
+  function stampRadius(kind) {
+    return BUILDINGS[kind]?.radius ?? 0.9;
+  }
+
+  function buildingConflicts(x, z, radius, ignoreId = null) {
+    const keep = keepCenter();
+    if (Math.hypot(x - keep.x, z - keep.z) < radius + 2.1) return true;
+    for (const b of state.buildings) {
+      if (b.id === ignoreId) continue;
+      if (b.kind === "wall") {
+        if (distToSegment(x, z, b.ax, b.az, b.bx, b.bz) < radius + WALL_HALF + 0.08) return true;
+      } else {
+        const r = b.radius ?? stampRadius(b.kind);
+        if (Math.hypot(x - b.x, z - b.z) < radius + r + 0.1) return true;
+      }
+    }
+    return false;
+  }
+
+  function canPlaceAt(kind, x, z) {
+    const def = BUILDINGS[kind];
+    if (!def || kind === "wall") return false;
+    if (!canPlaceKind(kind) || !canAfford(def.cost)) return false;
+    const radius = stampRadius(kind);
+    const tiles = tilesTouchedByCircle(x, z, radius);
+    if (!tiles.length || !state.world.canBuildAll(tiles) || footprintBlocked(tiles)) return false;
+    if (buildingConflicts(x, z, radius)) return false;
+    return true;
+  }
+
+  function placeBuilding(kind, x, z) {
     if (kind === "wall") return false;
     const def = BUILDINGS[kind];
     if (!def) return false;
@@ -551,32 +662,39 @@ export function createGame(canvas, ui) {
       if (kind === "farm") setHint(`Farm cap reached (${MAX_FARMS}). Sell one to build another.`);
       return false;
     }
-    const print = tilesFor(kind, c, r);
-    if (!state.world.canBuildAll(print.tiles) || footprintBlocked(print.tiles)) return false;
+    const radius = stampRadius(kind);
+    const tiles = tilesTouchedByCircle(x, z, radius);
+    if (!tiles.length || !state.world.canBuildAll(tiles) || footprintBlocked(tiles) || buildingConflicts(x, z, radius)) {
+      return false;
+    }
     if (!spend(def.cost)) return false;
-    const rallyR = Math.min(print.origin.r + print.tilesH + 1, ROWS - 2);
+    const tile = worldToTile(x, z);
+    const rally = kind === "barracks" ? { x, z: z + TILE * 1.15 } : null;
+    if (rally) {
+      const rt = worldToTile(rally.x, rally.z);
+      rally.c = rt.c;
+      rally.r = rt.r;
+    }
     const b = {
       id: uid(),
       kind,
-      c: print.origin.c,
-      r: print.origin.r,
-      tilesW: print.tilesW,
-      tilesH: print.tilesH,
-      x: print.center.x,
-      z: print.center.z,
+      c: tile.c,
+      r: tile.r,
+      tilesW: 1,
+      tilesH: 1,
+      radius,
+      x,
+      z,
+      level: 0,
+      cost: def.cost,
       hp: def.hp,
       maxHp: def.hp,
       cooldown: 0,
       train: 0,
-      rally: kind === "barracks" ? { c: print.origin.c + 1, r: rallyR } : null,
+      rally,
     };
-    if (b.rally) {
-      const p = tileCenter(b.rally.c, b.rally.r);
-      b.rally.x = p.x;
-      b.rally.z = p.z;
-    }
     state.buildings.push(b);
-    state.world.occupy(print.tiles, { kind: "building", id: b.id });
+    state.world.occupy(tiles, { kind: "building", id: b.id });
     state.selected = b.id;
     audio.place();
     return true;
@@ -613,7 +731,9 @@ export function createGame(canvas, ui) {
   }
 
   function armyCap() {
-    return allBarracks().length * HOUSING_PER_BARRACKS;
+    let cap = 0;
+    for (const hall of allBarracks()) cap += buildingStats("barracks", hall.level).housing;
+    return cap;
   }
 
   function armyMixText() {
@@ -633,14 +753,14 @@ export function createGame(canvas, ui) {
   }
 
   function trainTroop(kind) {
-    const def = TROOPS[kind];
+    const def = troopDef(kind);
     if (!def) return false;
     if (!allBarracks().length) return false;
     if (armyHousing() + def.housing > armyCap()) {
       setHint("Army is full. Build another barracks.");
       return false;
     }
-    if (!spend(def.cost)) return false;
+    if (!spend(TROOPS[kind].cost)) return false;
     const home = pickSpawnHall();
     if (!home) return false;
     spawnSquad(home, kind);
@@ -649,8 +769,58 @@ export function createGame(canvas, ui) {
     return true;
   }
 
+  function upgradeTroop(kind) {
+    if (!countKind("workshop")) {
+      setHint("Build a workshop to upgrade troops.");
+      return false;
+    }
+    if (troopLevel(kind) >= UPGRADE_MAX) return false;
+    if (!spend(upgradeCost(kind))) return false;
+    const before = troopDef(kind);
+    state.upgrades[kind] += 1;
+    const after = troopDef(kind);
+    for (const t of state.troops) {
+      if (t.kind !== kind || t.hp <= 0) continue;
+      const ratio = t.maxHp ? t.hp / t.maxHp : 1;
+      t.maxHp = after.hp;
+      t.hp = Math.max(1, Math.round(after.hp * ratio));
+      t.level = troopLevel(kind);
+    }
+    setHint(`${TROOPS[kind].name} is now level ${troopLevel(kind)}.`);
+    renderInspect();
+    syncHud();
+    return Boolean(before && after);
+  }
+
+  function upgradeBuilding() {
+    const b = selectedBuilding();
+    if (!b) return false;
+    const members = b.kind === "wall" ? wallGroupOf(b) : [b];
+    const lv = Math.min(...members.map((item) => item.level || 0));
+    if (lv >= UPGRADE_MAX) return false;
+    const cost = buildingUpgradeCost(b);
+    if (!cost || !spend(cost)) return false;
+    for (const item of members) {
+      if ((item.level || 0) >= UPGRADE_MAX) continue;
+      const next = (item.level || 0) + 1;
+      const paid = pieceUpgradeCost(item.kind, item.level || 0);
+      const after = buildingStats(item.kind, next);
+      const ratio = item.maxHp ? item.hp / item.maxHp : 1;
+      item.level = next;
+      item.maxHp = after.hp;
+      item.hp = Math.max(1, Math.round(after.hp * ratio));
+      item.cost = (item.cost ?? BUILDINGS[item.kind].cost) + paid;
+    }
+    const label = b.kind === "wall" && members.length > 1 ? `Wall (${members.length} pieces)` : BUILDINGS[b.kind].name;
+    setHint(`${label} is now level ${lv + 1}.`);
+    renderInspect();
+    syncHud();
+    audio.place();
+    return true;
+  }
+
   function spawnSquad(barracks, kind) {
-    const def = TROOPS[kind];
+    const def = troopDef(kind);
     if (!def) return;
     const squad = def.squad || 1;
     const share = def.housing / squad;
@@ -671,6 +841,7 @@ export function createGame(canvas, ui) {
         kind,
         home: barracks.id,
         housing: share,
+        level: troopLevel(kind),
         c: tile.c,
         r: tile.r,
         x,
@@ -719,6 +890,8 @@ export function createGame(canvas, ui) {
         hp: def.hp,
         maxHp: def.hp,
         cooldown: 0,
+        slow: 0,
+        fly: Boolean(def.fly),
         ox: rx * lat * 0.12,
         oz: rz * lat * 0.12,
       });
@@ -731,18 +904,39 @@ export function createGame(canvas, ui) {
     if (i >= 0) list.splice(i, 1);
   }
 
+  function closestOnSeg(px, pz, ax, az, bx, bz) {
+    const dx = bx - ax;
+    const dz = bz - az;
+    const len2 = dx * dx + dz * dz;
+    if (len2 < 1e-8) return { x: ax, z: az };
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2));
+    return { x: ax + dx * t, z: az + dz * t };
+  }
+
+  function solidBuildingAt(x, z) {
+    const tile = worldToTile(x, z);
+    const b = buildingAt(tile.c, tile.r);
+    return b && b.kind !== "wall" && b.kind !== "spikes" ? b : null;
+  }
+
+  function enemyBlockedAt(x, z) {
+    if (state.world.wallHitsPoint(x, z, 0.16)) return true;
+    return Boolean(solidBuildingAt(x, z));
+  }
+
   function steerToward(unit, dest, dt, speed) {
     const dx = dest.x - unit.x;
     const dz = dest.z - unit.z;
     const len = Math.hypot(dx, dz);
     if (len < 0.1) return;
-    const step = speed * TILE * dt;
+    const mul = unit.slow > 0 ? 0.52 : 1;
+    const step = speed * mul * TILE * dt;
     const nx = unit.x + (dx / len) * Math.min(step, len);
     const nz = unit.z + (dz / len) * Math.min(step, len);
-    const blocked = unit.team !== "ally" && state.world.wallHitsPoint(nx, nz, 0.16);
+    const blocked = !unitIgnoresWalls(unit) && enemyBlockedAt(nx, nz);
     if (blocked) {
-      if (!state.world.wallHitsPoint(nx, unit.z, 0.16)) unit.x = nx;
-      else if (!state.world.wallHitsPoint(unit.x, nz, 0.16)) unit.z = nz;
+      if (!enemyBlockedAt(nx, unit.z)) unit.x = nx;
+      else if (!enemyBlockedAt(unit.x, nz)) unit.z = nz;
     } else {
       unit.x = nx;
       unit.z = nz;
@@ -796,7 +990,7 @@ export function createGame(canvas, ui) {
       const step = Math.min(n, 2.2 * dt);
       const nx = u.x + (ox / n) * step;
       const nz = u.z + (oz / n) * step;
-      if (u.team === "ally" || !state.world.wallHitsPoint(nx, nz, 0.14)) {
+      if (unitIgnoresWalls(u) || !enemyBlockedAt(nx, nz)) {
         u.x = nx;
         u.z = nz;
       }
@@ -819,35 +1013,95 @@ export function createGame(canvas, ui) {
     return best;
   }
 
-  function stepFarms(dt) {
-    let income = 0;
+  function farmIncomePerSec() {
+    let n = 0;
+    let rate = 0;
     for (const b of state.buildings) {
-      if (b.kind === "farm") income += BUILDINGS.farm.goldPerSec * dt;
+      if (b.kind !== "farm" || b.hp <= 0) continue;
+      rate += buildingStats("farm", b.level).goldPerSec * Math.pow(0.68, n);
+      n += 1;
     }
+    return rate;
+  }
+
+  function killBounty(kind) {
+    const base = ENEMIES[kind]?.gold || 0;
+    const w = state.wave || 1;
+    const scale = w <= 2 ? 1 : w <= 4 ? 0.65 : w <= 6 ? 0.42 : w <= 8 ? 0.26 : 0.16;
+    return base * scale;
+  }
+
+  function stepFarms(dt) {
+    const income = farmIncomePerSec() * dt;
     if (income) addGold(income);
+  }
+
+  function faceToward(unit, target) {
+    if (!target) return;
+    unit.aimYaw = Math.atan2(target.x - unit.x, target.z - unit.z);
   }
 
   function stepTowers(dt) {
     for (const b of state.buildings) {
-      const def = BUILDINGS[b.kind];
+      const def = buildingStats(b.kind, b.level);
       if (!def?.range) continue;
-      b.cooldown -= dt;
-      if (b.cooldown > 0) continue;
       const target = nearestEnemy(b, def.range * TILE);
-      if (!target) continue;
+      if (target) faceToward(b, target);
+      b.cooldown -= dt;
+      if (b.cooldown > 0 || !target) continue;
       b.cooldown = def.fireRate;
+      const yaw = b.aimYaw || 0;
+      const muzzle = b.kind === "cannon" ? 0.9 : b.kind === "mage" ? 0.45 : 0.7;
       state.projectiles.push({
         id: uid(),
-        x: b.x,
-        z: b.z,
+        x: b.x + Math.sin(yaw) * muzzle,
+        z: b.z + Math.cos(yaw) * muzzle,
         tx: target.x,
         tz: target.z,
         target: target.id,
         damage: def.damage,
         splash: def.splash || 0,
+        slow: def.slow || 0,
+        fx: def.projectile || "bolt",
         speed: def.speed,
       });
       audio.shoot();
+    }
+  }
+
+  function stepTraps(dt) {
+    for (const b of state.buildings) {
+      if (b.kind !== "spikes" || b.hp <= 0) continue;
+      const r2 = TILE * 0.72 * TILE * 0.72;
+      const dps = buildingStats("spikes", b.level).damagePerSec * dt;
+      for (const e of state.enemies) {
+        if (e.hp <= 0 || e.fly) continue;
+        const dx = e.x - b.x;
+        const dz = e.z - b.z;
+        if (dx * dx + dz * dz <= r2) e.hp -= dps;
+      }
+    }
+  }
+
+  function stepWorkshop(dt) {
+    for (const hall of state.buildings) {
+      if (hall.kind !== "workshop" || hall.hp <= 0) continue;
+      const def = buildingStats("workshop", hall.level);
+      const reach = def.repairRange * TILE;
+      const reach2 = reach * reach;
+      const heal = def.repairPerSec * dt;
+      for (const b of state.buildings) {
+        if (b === hall || b.hp <= 0 || b.hp >= b.maxHp) continue;
+        const dx = b.x - hall.x;
+        const dz = b.z - hall.z;
+        if (dx * dx + dz * dz <= reach2) b.hp = Math.min(b.maxHp, b.hp + heal);
+      }
+    }
+  }
+
+  function stepStatus(dt) {
+    for (const e of state.enemies) {
+      if (e.slow > 0) e.slow -= dt;
     }
   }
 
@@ -876,6 +1130,7 @@ export function createGame(canvas, ui) {
           const ez = e.z - impactZ;
           if (ex * ex + ez * ez <= reach2) {
             e.hp -= p.damage;
+            if (p.slow) e.slow = Math.max(e.slow || 0, p.slow);
             hit = true;
           }
         }
@@ -902,7 +1157,7 @@ export function createGame(canvas, ui) {
     if (attacker.cooldown > 0) return;
     victim.hp -= dmg;
     if (attacker.team === "ally") {
-      const def = TROOPS[attacker.kind];
+      const def = troopDef(attacker.kind);
       if (def?.splash) {
         const r2 = def.splash * TILE * (def.splash * TILE);
         for (const e of state.enemies) {
@@ -921,11 +1176,12 @@ export function createGame(canvas, ui) {
 
   function stepTroops(dt) {
     for (const t of state.troops) {
-      const def = TROOPS[t.kind];
+      const def = troopDef(t.kind);
       if (!def) continue;
       t.cooldown -= dt;
       const foe = nearestEnemy(t, def.aggro * TILE);
       if (foe) {
+        faceToward(t, foe);
         const dx = t.x - foe.x;
         const dz = t.z - foe.z;
         const d2 = dx * dx + dz * dz;
@@ -937,6 +1193,7 @@ export function createGame(canvas, ui) {
         steerToward(t, foe, dt, def.speed);
         continue;
       }
+      t.aimYaw = null;
       const dest = t.order || rallyPoint(t);
       if (!dest) continue;
       steerToward(t, dest, dt, def.speed);
@@ -970,9 +1227,10 @@ export function createGame(canvas, ui) {
       const kdz = keep.z - e.z;
       const keepReach = def.range * TILE + 1.45;
       if (kdx * kdx + kdz * kdz <= keepReach * keepReach) {
+        faceToward(e, keep);
         if (e.cooldown <= 0) {
-          state.keepHp -= def.damage;
-          e.cooldown = 0.9;
+          state.keepHp -= def.keepDamage ?? def.damage;
+          e.cooldown = def.siege ? 1.05 : 0.9;
           audio.keepHurt();
         }
         continue;
@@ -992,22 +1250,34 @@ export function createGame(canvas, ui) {
           }
         }
         if (troop) {
+          faceToward(e, troop);
           attack(e, troop, def.damage);
           continue;
         }
       }
 
-      const flow = state.world.flowAt(e.c, e.r);
-      if (!flow) {
-        const wall = state.world.nearestWall(e.x, e.z, def.range * TILE + 0.35);
+      const aerial = def.fly || def.climb;
+      if (!aerial) {
+        const hunt = def.siege ? TILE * 4.2 : TILE * 3.4;
+        const wall = state.world.nearestWall(e.x, e.z, hunt);
         if (wall) {
           const blocker = buildings.get(wall.id);
           if (blocker && blocker.hp > 0) {
-            attack(e, blocker, def.damage);
+            const gap = distToSegment(e.x, e.z, wall.ax, wall.az, wall.bx, wall.bz) - WALL_HALF;
+            const hit = closestOnSeg(e.x, e.z, wall.ax, wall.az, wall.bx, wall.bz);
+            faceToward(e, hit);
+            if (gap <= def.range * TILE + 0.28) {
+              attack(e, blocker, def.wallDamage ?? def.damage);
+              continue;
+            }
+            steerToward(e, hit, dt, def.speed);
             continue;
           }
         }
       }
+
+      e.aimYaw = null;
+      const flow = aerial ? null : state.world.flowAt(e.c, e.r);
 
       let tx = keep.x;
       let tz = keep.z;
@@ -1024,7 +1294,7 @@ export function createGame(canvas, ui) {
   function sweepDead() {
     for (const e of [...state.enemies]) {
       if (e.hp <= 0) {
-        addGold(ENEMIES[e.kind].gold);
+        addGold(killBounty(e.kind));
         removeUnit(state.enemies, e);
       }
     }
@@ -1076,7 +1346,7 @@ export function createGame(canvas, ui) {
     state.phase = "win";
     ui.end.hidden = false;
     ui.endKicker.textContent = "Victory";
-    ui.endTitle.textContent = "The keep stands";
+    ui.endTitle.textContent = "The stronghold stands";
     ui.endBody.textContent = "Ten waves broke on the meadow.";
     audio.win();
     releaseLook();
@@ -1087,7 +1357,7 @@ export function createGame(canvas, ui) {
     state.phase = "lose";
     ui.end.hidden = false;
     ui.endKicker.textContent = "Defeat";
-    ui.endTitle.textContent = "The keep fell";
+    ui.endTitle.textContent = "The stronghold fell";
     ui.endBody.textContent = "The next layout will be wiser.";
     audio.lose();
     releaseLook();
@@ -1103,15 +1373,27 @@ export function createGame(canvas, ui) {
   }
 
   function inspectMetaText(b) {
-    let meta =
-      b.kind === "wall"
-        ? `HP ${Math.ceil(b.hp)} / ${b.maxHp} · wall piece`
-        : `HP ${Math.ceil(b.hp)} / ${b.maxHp} · ${b.tilesW}×${b.tilesH} tiles`;
-    if (b.kind === "farm") meta += ` · Farms ${countKind("farm")}/${MAX_FARMS}`;
+    const stats = buildingStats(b.kind, b.level);
+    const lv = b.level || 0;
+    let meta = `Lv ${lv} / ${UPGRADE_MAX} · HP ${Math.ceil(b.hp)} / ${b.maxHp}`;
+    if (b.kind === "wall") {
+      const n = wallGroupOf(b).length;
+      meta += n > 1 ? ` · ${n} pieces` : " · wall piece";
+    }
+    if (stats.range) meta += ` · range ${stats.range}`;
+    if (stats.damage) meta += ` · ${stats.damage} dmg`;
+    if (b.kind === "farm") {
+      meta += ` · ${farmIncomePerSec().toFixed(1)}g/s from ${countKind("farm")}/${MAX_FARMS}`;
+      meta += " · extra farms earn less";
+    }
+    if (b.kind === "mage") meta += ` · slows ${stats.slow.toFixed(1)}s`;
+    if (b.kind === "spikes") meta += ` · ${stats.damagePerSec} dps underfoot`;
+    if (b.kind === "workshop") meta += ` · repairs ${stats.repairPerSec}/s`;
     if (b.kind === "barracks") {
       meta += ` · Army ${Math.round(armyHousing())}/${armyCap()}`;
       const halls = allBarracks().length;
       if (halls > 1) meta += ` · ${halls} halls`;
+      meta += ` · +${stats.housing} space`;
     }
     return meta;
   }
@@ -1148,21 +1430,58 @@ export function createGame(canvas, ui) {
       const full = armyHousing() + def.housing > armyCap();
       btn.disabled = full || !canAfford(def.cost);
     }
+    for (const btn of ui.inspect.querySelectorAll("[data-upgrade]")) {
+      const kind = btn.dataset.upgrade;
+      const lv = troopLevel(kind);
+      const cost = upgradeCost(kind);
+      btn.disabled = lv >= UPGRADE_MAX || !canAfford(cost);
+      btn.textContent = lv >= UPGRADE_MAX ? "Max" : `Upgrade ${cost}g`;
+    }
     const b = selectedBuilding();
     if (b) ui.inspectMeta.textContent = inspectMetaText(b);
+    const buildBtn = ui.inspect.querySelector("[data-upgrade-building]");
+    if (buildBtn && b) {
+      const lv = b.kind === "wall" ? Math.min(...wallGroupOf(b).map((item) => item.level || 0)) : b.level || 0;
+      const cost = buildingUpgradeCost(b);
+      buildBtn.disabled = lv >= UPGRADE_MAX || !canAfford(cost);
+      if (lv >= UPGRADE_MAX) buildBtn.textContent = "Maxed";
+      else if (b.kind === "wall") {
+        const n = wallGroupOf(b).length;
+        buildBtn.textContent = n > 1 ? `Upgrade wall ${cost}g` : `Upgrade ${cost}g`;
+      } else buildBtn.textContent = `Upgrade ${cost}g`;
+    }
+  }
+
+  function troopPortrait(kind, level = 0) {
+    return view.troopPortraits?.[`${kind}:${level}`] || view.troopPortraits?.[kind] || "";
+  }
+
+  function addBuildingUpgradeButton() {
+    const b = selectedBuilding();
+    if (!b) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "upgrade-building";
+    btn.dataset.upgradeBuilding = "1";
+    btn.addEventListener("click", () => upgradeBuilding());
+    ui.inspectActions.appendChild(btn);
   }
 
   function renderInspect() {
     const b = selectedBuilding();
-    ui.inspect.classList.toggle("barracks-menu", Boolean(b && b.kind === "barracks"));
+    ui.inspect.classList.toggle("barracks-menu", Boolean(b && (b.kind === "barracks" || b.kind === "workshop")));
     if (!b) {
       ui.inspect.hidden = true;
       return;
     }
     ui.inspect.hidden = false;
-    ui.inspectTitle.textContent = BUILDINGS[b.kind].name;
+    ui.inspectTitle.textContent = buildingName(b.kind, b.level);
     ui.inspectMeta.textContent = inspectMetaText(b);
     ui.inspectActions.innerHTML = "";
+    const hp = document.createElement("div");
+    hp.className = "inspect-hp";
+    hp.innerHTML = `<span>Health</span><div class="hp-track"><i style="width:${Math.max(0, (b.hp / b.maxHp) * 100)}%"></i></div>`;
+    ui.inspectActions.appendChild(hp);
     if (b.kind === "barracks") {
       const track = document.createElement("div");
       track.className = "army-track";
@@ -1187,25 +1506,57 @@ export function createGame(canvas, ui) {
         icon.className = "troop-icon";
         icon.alt = "";
         icon.draggable = false;
-        icon.src = view.troopPortraits?.[kind] || "";
+        icon.src = troopPortrait(kind, troopLevel(kind));
         const name = document.createElement("strong");
         name.textContent = def.name;
         const info = document.createElement("em");
-        info.textContent = `×${def.squad} · ${def.cost}g · ${def.housing} space`;
+        const lv = troopLevel(kind);
+        info.textContent = `×${def.squad} · ${def.cost}g${lv ? ` · Lv ${lv}` : ""}`;
         card.append(icon, name, info);
         bindHoldTrain(card, kind);
         grid.appendChild(card);
       }
       ui.inspectActions.appendChild(grid);
       const rally = document.createElement("p");
-      rally.textContent = "Click a troop to train it now. Hold to keep training. Drag a box to select soldiers, then click the ground to send them.";
+      rally.textContent = "Click a troop to train it now. Hold to keep training. Build a workshop to upgrade them.";
       ui.inspectActions.appendChild(rally);
       refreshBarracksMenu();
+    } else if (b.kind === "workshop") {
+      const note = document.createElement("p");
+      note.textContent = "Repairs nearby walls and towers. Upgrade a troop type for the whole army — they gain armor and better gear.";
+      ui.inspectActions.appendChild(note);
+      const grid = document.createElement("div");
+      grid.className = "troop-grid";
+      for (const kind of TROOP_ORDER) {
+        const def = TROOPS[kind];
+        const card = document.createElement("div");
+        card.className = "troop-card upgrade-card";
+        const icon = document.createElement("img");
+        icon.className = "troop-icon";
+        icon.alt = "";
+        icon.draggable = false;
+        icon.src = troopPortrait(kind, troopLevel(kind));
+        const name = document.createElement("strong");
+        name.textContent = def.name;
+        const info = document.createElement("em");
+        info.textContent = `Lv ${troopLevel(kind)} / ${UPGRADE_MAX}`;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.upgrade = kind;
+        btn.textContent = "Upgrade";
+        btn.addEventListener("click", () => upgradeTroop(kind));
+        card.append(icon, name, info, btn);
+        grid.appendChild(card);
+      }
+      ui.inspectActions.appendChild(grid);
+      refreshBarracksMenu();
     }
+    addBuildingUpgradeButton();
     const sell = document.createElement("button");
     sell.textContent = `Sell (+${b.cost ?? BUILDINGS[b.kind].cost}g)`;
     sell.addEventListener("click", sellSelected);
     ui.inspectActions.appendChild(sell);
+    refreshBarracksMenu();
   }
 
   function syncHud() {
@@ -1215,27 +1566,39 @@ export function createGame(canvas, ui) {
     ui.wave.textContent = state.phase === "prep" || state.phase === "menu" ? "—" : `${state.wave} / ${WAVE_COUNT}`;
     ui.keepHp.textContent = String(Math.max(0, Math.ceil(state.keepHp)));
     ui.keepFill.style.width = `${Math.max(0, (state.keepHp / KEEP_MAX_HP) * 100)}%`;
+    if (ui.army) ui.army.textContent = `${Math.round(armyHousing())}/${armyCap()}`;
+    if (ui.armyFill) {
+      const cap = Math.max(1, armyCap());
+      ui.armyFill.style.width = `${Math.min(100, (armyHousing() / cap) * 100)}%`;
+    }
     ui.btnMute.textContent = audio.isMuted() ? "Unmute" : "Mute";
     for (const btn of ui.buildBar.querySelectorAll("[data-build]")) {
       btn.classList.toggle("active", btn.dataset.build === state.tool);
-      if (btn.dataset.build === "farm") {
+      const kind = btn.dataset.build;
+      const def = BUILDINGS[kind];
+      const em = btn.querySelector("em");
+      if (kind === "farm") {
         const n = countKind("farm");
-        const em = btn.querySelector("em");
-        if (em) em.textContent = `50g · ${n}/${MAX_FARMS}`;
+        if (em) em.textContent = `${def.cost}g · ${n}/${MAX_FARMS}`;
         btn.classList.toggle("capped", n >= MAX_FARMS);
+      } else if (em && def && !def.draw) {
+        em.textContent = `${def.cost}g`;
       }
+      btn.classList.toggle("unaffordable", Boolean(def && !def.draw && !canAfford(def.cost) && kind !== "farm"));
     }
   }
 
   function rangeInfo() {
     if (state.tool === "wall") return null;
-    const ghost = state.tool && BUILDINGS[state.tool]?.range && state.hover;
+    const ghost = state.tool && BUILDINGS[state.tool]?.range && state.pointer;
     if (ghost) {
-      const print = tilesFor(state.tool, state.hover.c, state.hover.r);
-      return { x: print.center.x, z: print.center.z, radius: BUILDINGS[state.tool].range * TILE };
+      return { x: state.pointer.x, z: state.pointer.z, radius: BUILDINGS[state.tool].range * TILE };
     }
     const b = selectedBuilding();
-    if (b && BUILDINGS[b.kind]?.range) return { x: b.x, z: b.z, radius: BUILDINGS[b.kind].range * TILE };
+    if (b && BUILDINGS[b.kind]?.range) {
+      const stats = buildingStats(b.kind, b.level);
+      return { x: b.x, z: b.z, radius: stats.range * TILE };
+    }
     return null;
   }
 
@@ -1250,7 +1613,7 @@ export function createGame(canvas, ui) {
       marquee: state.marquee
         ? { ax: state.marquee.ax, az: state.marquee.az, bx: state.marquee.bx, bz: state.marquee.bz }
         : null,
-      showGrid: Boolean(state.tool && state.tool !== "wall"),
+      showGrid: false,
       hoverTile: state.hover,
       ghost: ghostPreview(),
       range: rangeInfo(),
@@ -1294,19 +1657,13 @@ export function createGame(canvas, ui) {
         snappedEnd: end.snapped,
       };
     }
-    if (!state.tool || !state.hover) return null;
-    const print = tilesFor(state.tool, state.hover.c, state.hover.r);
+    if (!state.tool || !state.pointer) return null;
     return {
       kind: state.tool,
-      tile: print.origin,
-      tilesW: print.tilesW,
-      tilesH: print.tilesH,
-      center: print.center,
-      ok:
-        canPlaceKind(state.tool) &&
-        state.world.canBuildAll(print.tiles) &&
-        !footprintBlocked(print.tiles) &&
-        canAfford(BUILDINGS[state.tool].cost),
+      tilesW: 1,
+      tilesH: 1,
+      center: { x: state.pointer.x, z: state.pointer.z },
+      ok: canPlaceAt(state.tool, state.pointer.x, state.pointer.z),
     };
   }
 
@@ -1327,6 +1684,9 @@ export function createGame(canvas, ui) {
       else setHint(`Wall · ${plan.cost}g · ${plan.n} piece${plan.n === 1 ? "" : "s"} — click to place.${snapNote}`);
     } else if (state.tool === "farm" && countKind("farm") >= MAX_FARMS) {
       setHint(`Farm cap reached (${MAX_FARMS}). Sell one to build another.`);
+    } else if (state.tool && state.tool !== "wall") {
+      if (canPlaceAt(state.tool, g.x, g.z)) setHint("Click to place on open grass.");
+      else setHint("Needs open grass, clear of walls and other buildings.");
     }
   }
 
@@ -1400,8 +1760,7 @@ export function createGame(canvas, ui) {
     }
     const selected = selectedBuilding();
     if (selected?.kind === "barracks" && !isKeepTile(tile.c, tile.r) && !isSpawnTile(tile.c, tile.r)) {
-      const p = tileCenter(tile.c, tile.r);
-      selected.rally = { c: tile.c, r: tile.r, x: p.x, z: p.z };
+      selected.rally = { c: tile.c, r: tile.r, x: box.ax, z: box.az };
       setHint("Rally set.");
       return;
     }
@@ -1467,7 +1826,9 @@ export function createGame(canvas, ui) {
     }
 
     if (state.tool) {
-      placeBuilding(state.tool, tile.c, tile.r);
+      if (!placeBuilding(state.tool, g.x, g.z)) {
+        setHint("Needs open grass, clear of walls and other buildings.");
+      }
       renderInspect();
       syncHud();
       return;
@@ -1488,6 +1849,7 @@ export function createGame(canvas, ui) {
     state.wallDraft = null;
     if (state.tool) state.selected = null;
     if (state.tool === "wall") setHint("Click a start, or aim near a wall tip to snap.");
+    else if (state.tool) setHint("Click open grass to place. Right-click cancels.");
     renderInspect();
     syncHud();
   }
@@ -1519,7 +1881,7 @@ export function createGame(canvas, ui) {
       setHint("Selection cleared.");
       return;
     }
-    if (playing() && /^Digit[1-5]$/.test(e.code)) {
+    if (playing() && /^Digit[1-8]$/.test(e.code)) {
       setTool(HOTBAR[Number(e.code.slice(5)) - 1], false);
       return;
     }
@@ -1571,14 +1933,18 @@ export function createGame(canvas, ui) {
 
   let last = performance.now();
   let hudAge = 0;
+  let shotFreeze = false;
   function frame(now) {
     const dt = Math.min(0.032, (now - last) / 1000);
     last = now;
     const blocked = state.phase === "menu" || state.phase === "win" || state.phase === "lose";
-    if (!blocked) {
+    if (!blocked && !shotFreeze) {
       if (state.phase === "prep" || state.phase === "combat" || state.phase === "between") {
         stepFarms(dt);
         stepTowers(dt);
+        stepTraps(dt);
+        stepWorkshop(dt);
+        stepStatus(dt);
         stepProjectiles(dt);
         stepTroops(dt);
         stepEnemies(dt);
@@ -1588,7 +1954,7 @@ export function createGame(canvas, ui) {
         else if (state.phase === "between") stepBetween(dt);
       }
     }
-    view.updateCamera(dt, blocked);
+    view.updateCamera(dt, blocked || shotFreeze);
     if (!blocked && document.pointerLockElement === canvas) {
       setHoverFromWorld(view.lookGround());
       if (state.marquee && state.pointer) {
@@ -1605,7 +1971,7 @@ export function createGame(canvas, ui) {
       const b = selectedBuilding();
       if (b && !ui.inspect.hidden) {
         ui.inspectMeta.textContent = inspectMetaText(b);
-        if (b.kind === "barracks") refreshBarracksMenu();
+        refreshBarracksMenu();
       }
     }
     requestAnimationFrame(frame);
@@ -1614,8 +1980,100 @@ export function createGame(canvas, ui) {
   occupyKeep();
   syncHud();
   requestAnimationFrame(frame);
+  setupShot();
 
   return { reset };
+
+  function setupShot() {
+    const shot = new URLSearchParams(window.location.search).get("shot");
+    if (!shot) return;
+    admin = true;
+    play();
+    if (ui.lookPrompt) ui.lookPrompt.hidden = true;
+    setHint("Hold the meadow.");
+    const kc = KEEP_TILES[0][0];
+    const kr = KEEP_TILES[0][1];
+    const tryPlace = (kind, c, r) => {
+      const p = tileCenter(c, r);
+      return placeBuilding(kind, p.x, p.z);
+    };
+    tryPlace("farm", kc + 4, kr);
+    tryPlace("farm", kc + 5, kr + 1);
+    tryPlace("barracks", kc - 4, kr);
+    tryPlace("workshop", kc + 4, kr + 4);
+    tryPlace("crossbow", kc - 1, kr - 4);
+    tryPlace("cannon", kc + 3, kr - 4);
+    tryPlace("mage", kc - 4, kr - 3);
+    tryPlace("spikes", kc + 1, kr - 5);
+    const wallLine = (c0, r0, c1, r1) => {
+      const a = tileCenter(c0, r0);
+      const b = tileCenter(c1, r1);
+      placeWall(a.x, a.z, b.x, b.z);
+    };
+    wallLine(kc - 3, kr + 4, kc + 6, kr + 4);
+    wallLine(kc - 5, kr - 2, kc - 5, kr + 4);
+    const hall = state.buildings.find((b) => b.kind === "barracks");
+    if (hall) {
+      trainTroop("spearman");
+      trainTroop("knight");
+      trainTroop("slinger");
+      trainTroop("raider");
+    }
+    const keep = keepCenter();
+    const look = (dist, height, pitch, fov = 48) => {
+      view.setCamera({ x: keep.x, y: height, z: keep.z + dist, yaw: Math.PI, pitch, fov });
+    };
+    document.documentElement.dataset.shot = shot;
+    shotFreeze = true;
+    if (shot === "island") {
+      state.selected = null;
+      renderInspect();
+      look(16, 22, 0.95, 50);
+    } else if (shot === "build") {
+      state.selected = null;
+      renderInspect();
+      look(13, 12, 0.62, 48);
+    } else if (shot === "army") {
+      if (hall) {
+        state.selected = hall.id;
+        renderInspect();
+      }
+      look(12, 11, 0.58, 48);
+    } else if (shot === "combat") {
+      state.selected = null;
+      renderInspect();
+      const kinds = ["goblin", "goblin", "runner", "brute", "archer", "bat", "climber", "ram"];
+      for (let i = 0; i < 40; i += 1) {
+        const type = kinds[i % kinds.length];
+        const def = ENEMIES[type];
+        const x = keep.x - 4.4 + (i % 8) * 1.1;
+        const z = keep.z + 5.6 + Math.floor(i / 8) * 1.05;
+        const tile = worldToTile(x, z);
+        state.enemies.push({
+          id: uid(),
+          team: "enemy",
+          kind: type,
+          c: tile.c,
+          r: tile.r,
+          x,
+          z,
+          hp: def.hp,
+          maxHp: def.hp,
+          cooldown: 0,
+          slow: 0,
+          fly: Boolean(def.fly),
+          ox: 0,
+          oz: 0,
+        });
+      }
+      look(14, 12.5, 0.65, 48);
+    } else {
+      state.selected = null;
+      renderInspect();
+      look(14, 14, 0.78, 50);
+    }
+    syncHud();
+  }
 }
 
 const game = createGame(document.getElementById("view"), {
@@ -1627,6 +2085,8 @@ const game = createGame(document.getElementById("view"), {
   wave: document.getElementById("wave"),
   keepHp: document.getElementById("keep-hp"),
   keepFill: document.getElementById("keep-fill"),
+  army: document.getElementById("army"),
+  armyFill: document.getElementById("army-fill"),
   btnPlay: document.getElementById("btn-play"),
   btnStart: document.getElementById("btn-start"),
   btnRestart: document.getElementById("btn-restart"),
@@ -1649,7 +2109,7 @@ for (const btn of document.querySelectorAll("[data-build]")) {
     const em = btn.querySelector("em");
     if (!em) continue;
     if (btn.dataset.build === "farm") em.textContent = `${def.cost}g · 0/${MAX_FARMS}`;
-    else em.textContent = def.draw ? `${def.cost}g+ · draw` : `${def.cost}g · ${def.tilesW}×${def.tilesH}`;
+    else em.textContent = def.draw ? `${def.cost}g+` : `${def.cost}g`;
   }
 }
 

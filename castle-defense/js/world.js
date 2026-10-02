@@ -292,6 +292,25 @@ function segmentHitsAabb(ax, az, bx, bz, minX, minZ, maxX, maxZ) {
   return clip(-dx, ax - minX) && clip(dx, maxX - ax) && clip(-dz, az - minZ) && clip(dz, maxZ - az);
 }
 
+export function tilesTouchedByCircle(x, z, radius) {
+  const minC = Math.max(0, Math.floor((x - radius) / TILE));
+  const maxC = Math.min(COLS - 1, Math.floor((x + radius) / TILE));
+  const minR = Math.max(0, Math.floor((z - radius) / TILE));
+  const maxR = Math.min(ROWS - 1, Math.floor((z + radius) / TILE));
+  const r2 = radius * radius;
+  const tiles = [];
+  for (let r = minR; r <= maxR; r += 1) {
+    for (let c = minC; c <= maxC; c += 1) {
+      const nx = Math.max(c * TILE, Math.min(x, (c + 1) * TILE));
+      const nz = Math.max(r * TILE, Math.min(z, (r + 1) * TILE));
+      const dx = x - nx;
+      const dz = z - nz;
+      if (dx * dx + dz * dz <= r2) tiles.push([c, r]);
+    }
+  }
+  return tiles;
+}
+
 export function tilesTouchedByWall(ax, az, bx, bz, half = WALL_HALF) {
   const minC = Math.max(0, Math.floor((Math.min(ax, bx) - half) / TILE));
   const maxC = Math.min(COLS - 1, Math.floor((Math.max(ax, bx) + half) / TILE));

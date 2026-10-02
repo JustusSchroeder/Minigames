@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Castle defense — overview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --sky: #7ec6ef;
+        --ink: #1a2420;
+        --muted: #4a5a52;
+        --paper: #f4efe2;
+        --panel: #fffaf0;
+        --edge: #2a332c;
+        --go: #2d8a3c;
+        --gold: #e2c45c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Space Grotesk", system-ui, sans-serif;
+        line-height: 1.5;
+        background: #6bb7e4;
+      }
+
+      .sky {
+        position: relative;
+        overflow: hidden;
+        padding: 28px 0 0;
+        background:
+          radial-gradient(circle at 18% 8%, #fff8 0%, transparent 32%),
+          linear-gradient(#9ad4f2, var(--sky) 42%, #8ec56a 42%, #dce9c8 78%, #e8c96a 78%, #7ec6ef 92%);
+      }
+
+      .sky::before,
+      .sky::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.55);
+        pointer-events: none;
+      }
+
+      .sky::before {
+        width: 120px;
+        height: 36px;
+        top: 28px;
+        right: 12%;
+        box-shadow: 28px 10px 0 8px rgba(255, 255, 255, 0.4);
+      }
+
+      .sky::after {
+        width: 90px;
+        height: 28px;
+        top: 54px;
+        left: 8%;
+        box-shadow: 22px 8px 0 6px rgba(255, 255, 255, 0.35);
+      }
+
+      .wrap {
+        position: relative;
+        z-index: 1;
+        width: min(980px, calc(100% - 32px));
+        margin: 0 auto 64px;
+      }
+
+      header.hero {
+        background: var(--panel);
+        border: 3px solid var(--edge);
+        border-radius: 14px;
+        box-shadow: 0 10px 0 rgba(20, 32, 24, 0.16);
+        padding: 26px 26px 20px;
+      }
+
+      .kicker {
+        margin: 0 0 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--muted);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-family: Fraunces, Georgia, serif;
+        font-size: clamp(2rem, 6vw, 3rem);
+        letter-spacing: -0.03em;
+      }
+
+      .lead {
+        margin: 0;
+        color: var(--muted);
+        max-width: 40rem;
+        font-size: 1.05rem;
+      }
+
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0 0;
+      }
+
+      .links a {
+        color: #f4f0e2;
+        font-weight: 700;
+        text-decoration: none;
+        border: 2px solid var(--edge);
+        background: var(--go);
+        padding: 6px 12px;
+        border-radius: 8px;
+        box-shadow: 0 4px 0 rgba(20, 32, 24, 0.16);
+      }
+
+      .links a.ghost {
+        color: var(--ink);
+        background: var(--paper);
+      }
+
+      section {
+        margin-top: 22px;
+        background: var(--panel);
+        border: 3px solid var(--edge);
+        border-radius: 14px;
+        box-shadow: 0 10px 0 rgba(20, 32, 24, 0.1);
+        padding: 22px 24px 24px;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-family: Fraunces, Georgia, serif;
+        font-size: 1.45rem;
+      }
+
+      section > p {
+        margin: 0 0 12px;
+      }
+
+      section > p:last-child {
+        margin-bottom: 0;
+      }
+
+      .grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        margin-top: 6px;
+      }
+
+      .card {
+        background: var(--paper);
+        border: 2px solid var(--edge);
+        border-radius: 12px;
+        padding: 14px 14px 12px;
+      }
+
+      .card h3 {
+        margin: 0 0 4px;
+        font-size: 1rem;
+      }
+
+      .card p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .pair {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: minmax(0, 0.62fr) minmax(280px, 1.9fr);
+        margin-top: 16px;
+        align-items: stretch;
+      }
+
+      .pair figure {
+        margin: 0;
+        background: #5ea85c;
+        border: 2px solid var(--edge);
+        border-radius: 12px;
+        overflow: hidden;
+        min-height: 260px;
+      }
+
+      .pair img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 260px;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+        object-position: 50% 40%;
+        background: #5ea85c;
+      }
+
+      .timeline {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+
+      .timeline li {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 12px;
+        align-items: start;
+        margin: 0;
+        padding: 10px 12px;
+        background: var(--paper);
+        border: 2px solid var(--edge);
+        border-radius: 12px;
+      }
+
+      .n {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--gold);
+        border: 2px solid var(--edge);
+        font-weight: 700;
+      }
+
+      .flow {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+
+      .flow article {
+        background: var(--paper);
+        border: 2px solid var(--edge);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .flow strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .flow p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .note {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 720px) {
+        .pair {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sky">
+      <div class="wrap">
+        <header class="hero">
+          <p class="kicker">Game overview</p>
+          <h1>Castle defense</h1>
+          <p class="lead">
+            A browser game: fly over a meadow island, build around the keep in the
+            middle, train an army, and hold off ten waves of attackers from the shore.
+          </p>
+          <p class="links">
+            <a href="https://justusschroeder.github.io/Minigames/castle-defense/">Play the game</a>
+            <a class="ghost" href="https://justusschroeder.github.io/Minigames/">Minigames hub</a>
+          </p>
+        </header>
+
+        <section>
+          <h2>What this is</h2>
+          <p>
+            Castle defense is one of three games on the minigames home page, next to
+            Neon Clash and Mini 8-Ball. It runs in a web browser. There is no account
+            and nothing to install.
+          </p>
+          <div class="pair">
+            <div class="card">
+              <h3>The island</h3>
+              <p>The map is a small island: grass, woods, beach, shallow water, rocks, and sea. The keep stands in the centre. Enemies arrive in the water around the edge.</p>
+            </div>
+            <figure>
+              <img src="assets/overview/island.png?v=4" alt="The meadow island with the keep in the centre." />
+            </figure>
+          </div>
+          <div class="pair">
+            <div class="card">
+              <h3>Building and gold</h3>
+              <p>The player draws wooden palisades and places farms, barracks, a workshop, spike pits, crossbows, cannons, and mage towers. Farms make gold. The workshop repairs walls and upgrades troops.</p>
+            </div>
+            <figure>
+              <img src="assets/overview/build.png?v=4" alt="A camp of wooden walls, farms, and towers around the keep." />
+            </figure>
+          </div>
+          <div class="pair">
+            <div class="card">
+              <h3>The waves</h3>
+              <p>Ten waves: goblins, runners, archers, brutes, flying bats, wall climbers, and rams. They walk toward the keep. After a breach they keep hitting nearby wall pieces instead of rushing farms.</p>
+            </div>
+            <figure>
+              <img src="assets/overview/combat.png?v=4" alt="Soldiers and towers fighting green attackers at the palisade." />
+            </figure>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <h3>The army</h3>
+              <p>Open a barracks to train spearman, slinger, raider, knight, or warden. Drag a box to select them, then click the ground to send them. Friendly troops can walk through the player’s own walls.</p>
+            </div>
+            <div class="card">
+              <h3>How it looks</h3>
+              <p>The player flies around the island. Walls are wooden palisades that look the same from both sides. Soldiers look like small knights; enemies are green. They walk like people rather than sliding.</p>
+            </div>
+            <div class="card">
+              <h3>The HUD</h3>
+              <p>Gold, army size, wave, and stronghold health sit at the top. The build bar along the bottom has eight buildings. Click a building in the world to inspect it, sell it, or upgrade troops.</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>How the game was built</h2>
+          <ol class="timeline">
+            <li><span class="n">1</span><span>Castle defense was added to the minigames home page, next to the other two games.</span></li>
+            <li><span class="n">2</span><span>The meadow island, the keep, and a view the player can fly around came first.</span></li>
+            <li><span class="n">3</span><span>Next came building: spend gold on farms, towers, and walls drawn as a line on the grass.</span></li>
+            <li><span class="n">4</span><span>Then the attack: enemies land from the shore, walk to the keep, break walls, and the player wins or loses over ten waves.</span></li>
+            <li><span class="n">5</span><span>Then an army: train groups at the barracks, select them with a drag box, and send them out.</span></li>
+            <li><span class="n">6</span><span>Characters got a proper look — knights on the player’s side, green attackers — and they walk instead of sliding.</span></li>
+            <li><span class="n">7</span><span>Last polish: a clearer HUD, mage towers, spike pits, a workshop with troop upgrades, new attackers (bats, climbers, rams), and palisades that look the same from both sides.</span></li>
+          </ol>
+        </section>
+
+        <section>
+          <h2>How to try it</h2>
+          <div class="flow">
+            <article>
+              <strong>Get ready</strong>
+              <p>Press Play, click the meadow so the mouse looks around, then fly with the keyboard. Place farms on grass for gold, barracks for soldiers, and walls and towers for defense. During this setup, gold cannot go above 540.</p>
+            </article>
+            <article>
+              <strong>Train an army</strong>
+              <p>Click a barracks and pick a troop. They appear and walk to the meeting point. Drag a box around soldiers to select them, then click the ground to send them. Q drops the selection. E selects everyone.</p>
+            </article>
+            <article>
+              <strong>Start the waves</strong>
+              <p>Enemies appear in the shallow water around the island. They walk from the beach, across the grass, toward the keep. If a wall is in the way, they attack the wall instead of going around it.</p>
+            </article>
+            <article>
+              <strong>Defend</strong>
+              <p>Crossbows shoot one enemy at a time. Cannons hit a small group nearby. Mage towers slow packs. Spike pits hurt walkers. Soldiers fight anything close enough.</p>
+            </article>
+            <article>
+              <strong>Win or lose</strong>
+              <p>If the keep’s health reaches zero, the game is lost. If wave 10 is cleared, the game is won. Defeated enemies give gold, and farms keep earning during play.</p>
+            </article>
+          </div>
+          <p class="note">A building can be sold at any time to get the gold back and change the layout.</p>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
