@@ -216,6 +216,7 @@ export const WALL_HALF = 0.32;
 export const WALL_MIN_LEN = TILE * 0.7;
 export const WALL_MAX_LEN = TILE * 14;
 export const WALL_MESH_LEN = 1.92;
+export const GATE_LEN = TILE * 2;
 
 export function distToSegment(px, pz, ax, az, bx, bz) {
   const abx = bx - ax;
@@ -410,6 +411,7 @@ export function createWorld() {
       bx: w.bx,
       bz: w.bz,
       half: w.half ?? WALL_HALF,
+      pass: Boolean(w.pass),
     }));
     wallIndex.clear();
     for (const wall of walls) {
@@ -441,9 +443,10 @@ export function createWorld() {
     return out;
   }
 
-  function wallHitsPoint(x, z, extra = 0) {
+  function wallHitsPoint(x, z, extra = 0, passGates = false) {
     const { c, r } = worldToTile(x, z);
     for (const wall of nearbyWalls(c, r)) {
+      if (passGates && wall.pass) continue;
       if (distToSegment(x, z, wall.ax, wall.az, wall.bx, wall.bz) <= wall.half + extra) return wall;
     }
     return null;
@@ -739,8 +742,16 @@ export function createWorld() {
     return null;
   }
 
+  function canPlant(c, r) {
+    return inBounds(c, r) && tileTerrain(c, r) === "grass" && !isKeepTile(c, r);
+  }
+
   function canBuild(c, r) {
-    return inBounds(c, r) && tileTerrain(c, r) === "grass" && !isKeepTile(c, r) && !get(c, r);
+    return canPlant(c, r) && !get(c, r);
+  }
+
+  function canPlantAll(tiles) {
+    return tiles.length > 0 && tiles.every(([c, r]) => canPlant(c, r));
   }
 
   function canBuildAll(tiles) {
@@ -751,15 +762,24 @@ export function createWorld() {
     for (const [c, r] of tiles) set(c, r, value);
   }
 
+  function occupyFree(tiles, value) {
+    for (const [c, r] of tiles) {
+      if (!get(c, r)) set(c, r, value);
+    }
+  }
+
   return {
     get,
     set,
     occupy,
+    occupyFree,
     clearId,
     walkable,
     astar,
     findSmashTarget,
     nearestFreeAround,
+    canPlant,
+    canPlantAll,
     canBuild,
     canBuildAll,
     setWalls,

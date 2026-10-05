@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css?v=21" />
     <script type="importmap">
       {
         "imports": {
@@ -22,8 +22,11 @@
   <body>
     <div class="app">
       <canvas id="view"></canvas>
-      <div id="crosshair" class="crosshair" hidden><i></i><b></b></div>
-      <p id="look-prompt" class="look-prompt" hidden>Click the meadow to look around</p>
+      <div id="crosshair" class="crosshair" hidden>
+        <i class="n"></i><i class="s"></i><i class="w"></i><i class="e"></i>
+        <span id="aim-tool" class="aim-tool" hidden></span>
+      </div>
+      <p id="look-prompt" class="look-prompt" hidden></p>
 
       <header class="hud top">
         <div class="hud-row">
@@ -42,19 +45,20 @@
               <span>Wave</span>
               <strong id="wave">—</strong>
             </div>
-            <div class="meter stronghold" title="Stronghold health">
-              <span>Stronghold</span>
+            <div class="meter stronghold" title="Click to upgrade the keep" id="keep-meter">
+              <span>Keep</span>
               <div class="hp-track"><i id="keep-fill"></i></div>
-              <strong id="keep-hp">100</strong>
+              <strong id="keep-hp">400</strong>
             </div>
           </div>
           <div class="hud-actions">
-            <button type="button" id="btn-mute" class="ghost">Mute</button>
+            <button type="button" id="btn-settings" class="ghost">Settings</button>
             <button type="button" id="btn-start" class="go">Start waves</button>
           </div>
         </div>
-        <p id="hint" class="hint">Place buildings, then start the waves.</p>
       </header>
+      <nav id="hotbar" class="hud hotbar" aria-label="Buildings"></nav>
+      <p id="hint" class="toast" hidden></p>
 
       <aside id="inspect" class="inspect" hidden>
         <p id="inspect-title" class="inspect-title">Building</p>
@@ -62,64 +66,23 @@
         <div id="inspect-actions" class="inspect-actions"></div>
       </aside>
 
-      <nav id="build-bar" class="build-bar" aria-label="Buildings">
-        <button type="button" data-build="wall">
-          <span class="hotkey">1</span>
-          <i class="icon wall"></i>
-          Wall <em>10g+</em>
-        </button>
-        <button type="button" data-build="crossbow">
-          <span class="hotkey">2</span>
-          <i class="icon crossbow"></i>
-          Crossbow <em>40g</em>
-        </button>
-        <button type="button" data-build="cannon">
-          <span class="hotkey">3</span>
-          <i class="icon cannon"></i>
-          Cannon <em>70g</em>
-        </button>
-        <button type="button" data-build="mage">
-          <span class="hotkey">4</span>
-          <i class="icon mage"></i>
-          Mage <em>85g</em>
-        </button>
-        <button type="button" data-build="spikes">
-          <span class="hotkey">5</span>
-          <i class="icon spikes"></i>
-          Spikes <em>22g</em>
-        </button>
-        <button type="button" data-build="farm">
-          <span class="hotkey">6</span>
-          <i class="icon farm"></i>
-          Farm <em>50g</em>
-        </button>
-        <button type="button" data-build="barracks">
-          <span class="hotkey">7</span>
-          <i class="icon barracks"></i>
-          Barracks <em>80g</em>
-        </button>
-        <button type="button" data-build="workshop">
-          <span class="hotkey">8</span>
-          <i class="icon workshop"></i>
-          Workshop <em>65g</em>
-        </button>
-      </nav>
-
       <div id="menu" class="overlay">
-        <div class="card">
+        <div class="card slim">
           <p class="kicker">Wave defense</p>
           <h2>Castle defense</h2>
-          <ul>
-            <li>Mouse looks. W and S fly along the camera, A and D strafe. Space up, Shift down, double-tap W sprints.</li>
-            <li>The crosshair picks the ground. Keys 1–8 or the scroll wheel choose a building. Esc frees the mouse.</li>
-            <li>Walls are drawn: click a start, then click the other end. Aim near a wall tip to snap a joint. Longer walls cost less per piece.</li>
-            <li>Other buildings drop wherever you click on open grass, same as wall points. They will not overlap walls, the keep, or each other.</li>
-            <li>Farms make gold (max 6). Mage towers slow packs. Spike pits hurt anything that walks over them. A workshop repairs nearby walls and upgrades troops — upgraded troops wear better armor.</li>
-            <li>Click a building to inspect it, then upgrade that building. Walls, towers, farms, barracks, and workshops all gain stronger stats and a better look, up to level 3.</li>
-            <li>Open any barracks for a troop menu. Drag a box to select troops, then click the ground to send them. Q deselects, E selects all.</li>
-            <li>Build freely, then press Start waves. Survive 10 waves to win.</li>
-          </ul>
           <button type="button" id="btn-play" class="go">Play</button>
+        </div>
+      </div>
+
+      <div id="settings" class="overlay" hidden>
+        <div class="card slim">
+          <p class="kicker">Options</p>
+          <h2>Settings</h2>
+          <div class="settings-row">
+            <span>Audio</span>
+            <button type="button" id="btn-mute" class="ghost">Mute</button>
+          </div>
+          <button type="button" id="btn-settings-close" class="go">Close</button>
         </div>
       </div>
 
@@ -135,10 +98,13 @@
     <script>
       window.addEventListener("error", (event) => {
         const hint = document.getElementById("hint");
-        if (hint) hint.textContent = event.message || "Something failed to load.";
+        if (hint) {
+          hint.hidden = false;
+          hint.textContent = event.message || "Something failed to load.";
+        }
         document.documentElement.dataset.gk = "error";
       });
     </script>
-    <script type="module" src="js/game.js"></script>
+    <script type="module" src="js/game.js?v=25"></script>
   </body>
 </html>

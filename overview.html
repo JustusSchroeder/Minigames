@@ -187,22 +187,59 @@
 
       .pair figure {
         margin: 0;
-        background: #5ea85c;
+        background: #67a6bc;
         border: 2px solid var(--edge);
         border-radius: 12px;
         overflow: hidden;
-        min-height: 260px;
       }
 
       .pair img {
         display: block;
         width: 100%;
-        height: 100%;
-        min-height: 260px;
-        aspect-ratio: 16 / 10;
-        object-fit: cover;
-        object-position: 50% 40%;
-        background: #5ea85c;
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 11 / 10;
+        object-fit: contain;
+        object-position: 50% 50%;
+        background: #67a6bc;
+      }
+
+      .army {
+        margin-top: 16px;
+      }
+
+      .army .card {
+        margin-bottom: 12px;
+      }
+
+      .troops {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .troops figure {
+        margin: 0;
+        background: #efe4c4;
+        border: 2px solid var(--edge);
+        border-radius: 12px;
+        overflow: hidden;
+        text-align: center;
+      }
+
+      .troops img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1;
+        object-fit: contain;
+        background: #efe4c4;
+      }
+
+      .troops figcaption {
+        padding: 6px 8px 10px;
+        font-size: 0.85rem;
+        font-weight: 700;
       }
 
       .timeline {
@@ -270,6 +307,10 @@
         .pair {
           grid-template-columns: 1fr;
         }
+
+        .troops {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
       }
     </style>
   </head>
@@ -302,31 +343,45 @@
               <p>The map is a small island: grass, woods, beach, shallow water, rocks, and sea. The keep stands in the centre. Enemies arrive in the water around the edge.</p>
             </div>
             <figure>
-              <img src="assets/overview/island.png?v=4" alt="The meadow island with the keep in the centre." />
+              <img src="assets/overview/island.png?v=6" alt="The meadow island with the keep in the centre." />
             </figure>
           </div>
-          <div class="pair">
+          <div class="army">
+            <div class="card">
+              <h3>The army</h3>
+              <p>Open a barracks to train spearman, slinger, raider, knight, or warden. Drag a box to select them, then click the ground to send them. Friendly troops can walk through the player’s own walls.</p>
+            </div>
+            <div class="troops">
+              <figure>
+                <img src="assets/overview/troop-spearman.png" alt="Spearman" width="384" height="384" />
+                <figcaption>Spearman</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/overview/troop-slinger.png" alt="Slinger" width="384" height="384" />
+                <figcaption>Slinger</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/overview/troop-raider.png" alt="Raider" width="384" height="384" />
+                <figcaption>Raider</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/overview/troop-knight.png" alt="Knight" width="384" height="384" />
+                <figcaption>Knight</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/overview/troop-warden.png" alt="Warden" width="384" height="384" />
+                <figcaption>Warden</figcaption>
+              </figure>
+            </div>
+          </div>
+          <div class="grid">
             <div class="card">
               <h3>Building and gold</h3>
               <p>The player draws wooden palisades and places farms, barracks, a workshop, spike pits, crossbows, cannons, and mage towers. Farms make gold. The workshop repairs walls and upgrades troops.</p>
             </div>
-            <figure>
-              <img src="assets/overview/build.png?v=4" alt="A camp of wooden walls, farms, and towers around the keep." />
-            </figure>
-          </div>
-          <div class="pair">
             <div class="card">
               <h3>The waves</h3>
               <p>Ten waves: goblins, runners, archers, brutes, flying bats, wall climbers, and rams. They walk toward the keep. After a breach they keep hitting nearby wall pieces instead of rushing farms.</p>
-            </div>
-            <figure>
-              <img src="assets/overview/combat.png?v=4" alt="Soldiers and towers fighting green attackers at the palisade." />
-            </figure>
-          </div>
-          <div class="grid">
-            <div class="card">
-              <h3>The army</h3>
-              <p>Open a barracks to train spearman, slinger, raider, knight, or warden. Drag a box to select them, then click the ground to send them. Friendly troops can walk through the player’s own walls.</p>
             </div>
             <div class="card">
               <h3>How it looks</h3>

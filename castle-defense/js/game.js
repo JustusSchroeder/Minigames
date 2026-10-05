@@ -1,4 +1,4 @@
-import { createView3D } from "./view3d.js?v=2";
+import { createView3D } from "./view3d.js?v=25";
 import {
   createWorld,
   tileCenter,
@@ -13,17 +13,23 @@ import {
   keepCenter,
   WALL_HALF,
   WALL_MIN_LEN,
+  GATE_LEN,
   clampWallEnd,
   wallPieces,
   wallChunkCount,
+  wallYaw,
   tilesTouchedByWall,
   tilesTouchedByCircle,
   distToSegment,
-} from "./world.js?v=2";
+} from "./world.js?v=7";
 
 const START_GOLD = 360;
 const PREP_GOLD_CAP = 540;
-const KEEP_MAX_HP = 100;
+const KEEP_MAX_HP = 400;
+const KEEP_HP = [400, 950, 1900, 3400];
+const KEEP_RADIUS = [3.2, 5.0, 6.8, 8.8];
+const KEEP_TITLES = ["Keep", "Fort", "Castle", "Citadel"];
+const KEEP_UPGRADE_COST = [150, 280, 520];
 const SELL_REFUND = 1;
 const HOUSING_PER_BARRACKS = 20;
 const MAX_FARMS = 6;
@@ -34,13 +40,16 @@ const FORMATION_GAP = 0.48;
 const UPGRADE_MAX = 3;
 const BUILDINGS = {
   wall: { name: "Wooden Wall", cost: 10, hp: 70, tilesW: 1, tilesH: 1, draw: true },
-  crossbow: { name: "Crossbow", cost: 40, hp: 60, range: 5.2, fireRate: 0.55, damage: 10, projectile: "bolt", speed: 18, tilesW: 1, tilesH: 1, radius: 0.9 },
-  cannon: { name: "Cannon", cost: 70, hp: 70, range: 5.0, fireRate: 1.7, damage: 6, splash: 1.5, projectile: "ball", speed: 14, tilesW: 1, tilesH: 1, radius: 0.95 },
-  mage: { name: "Mage tower", cost: 85, hp: 55, range: 4.6, fireRate: 1.2, damage: 5, splash: 1.05, slow: 2.2, projectile: "spark", speed: 16, tilesW: 1, tilesH: 1, radius: 0.85 },
-  spikes: { name: "Spike pit", cost: 22, hp: 32, damagePerSec: 8, tilesW: 1, tilesH: 1, radius: 0.85 },
-  farm: { name: "Farm", cost: 50, hp: 25, goldPerSec: 1.5, tilesW: 1, tilesH: 1, radius: 1.05 },
-  barracks: { name: "Barracks", cost: 80, hp: 80, tilesW: 1, tilesH: 1, radius: 1.05 },
-  workshop: { name: "Workshop", cost: 65, hp: 50, repairPerSec: 10, repairRange: 4.2, tilesW: 1, tilesH: 1, radius: 1.0 },
+  gate: { name: "Gate", cost: 12, hp: 90, tilesW: 1, tilesH: 1, draw: true },
+  crossbow: { name: "Crossbow", cost: 40, hp: 60, range: 5.2, fireRate: 0.55, damage: 10, projectile: "bolt", speed: 18, tilesW: 1, tilesH: 1, radius: 0.85 },
+  cannon: { name: "Cannon", cost: 70, hp: 70, range: 5.0, fireRate: 1.7, damage: 6, splash: 1.5, projectile: "ball", speed: 14, tilesW: 1, tilesH: 1, radius: 0.92 },
+  mage: { name: "Mage tower", cost: 85, hp: 55, range: 4.6, fireRate: 1.2, damage: 5, splash: 1.05, slow: 2.2, projectile: "spark", speed: 16, tilesW: 1, tilesH: 1, radius: 0.5 },
+  air: { name: "Air defense", cost: 90, hp: 55, range: 6.4, fireRate: 0.7, damage: 14, projectile: "flak", speed: 22, tilesW: 1, tilesH: 1, radius: 0.87 },
+  spikes: { name: "Spike pit", cost: 22, hp: 32, damagePerSec: 8, tilesW: 1, tilesH: 1, radius: 0.4 },
+  farm: { name: "Farm", cost: 50, hp: 25, goldPerSec: 1.5, tilesW: 1, tilesH: 1, radius: 0.7 },
+  barracks: { name: "Barracks", cost: 80, hp: 80, tilesW: 1, tilesH: 1, radius: 0.74 },
+  workshop: { name: "Workshop", cost: 65, hp: 50, repairPerSec: 10, repairRange: 4.2, tilesW: 1, tilesH: 1, radius: 0.68 },
+  keep: { name: "Keep", cost: 0, hp: KEEP_HP[0], tilesW: 2, tilesH: 2, radius: KEEP_RADIUS[0] },
 };
 
 const TROOP_ORDER = ["spearman", "slinger", "raider", "knight", "warden"];
@@ -255,6 +264,7 @@ export function createGame(canvas, ui) {
       hover: null,
       pointer: null,
       wallDraft: null,
+      wallMode: "draw",
       picked: new Set(),
       marquee: null,
       buildings: [],
@@ -264,12 +274,20 @@ export function createGame(canvas, ui) {
       spawnQueue: [],
       spawned: 0,
       spawnLane: 0,
+      boats: [],
       upgrades: Object.fromEntries(TROOP_ORDER.map((k) => [k, 0])),
       world: createWorld(),
     };
   }
 
-  const HOTBAR = ["wall", "crossbow", "cannon", "mage", "spikes", "farm", "barracks", "workshop"];
+  const HOTBAR = ["wall", "crossbow", "cannon", "mage", "air", "spikes", "farm", "barracks", "workshop"];
+  const BOAT_ARRIVE = 8.6;
+  const BOAT_LEAVE = 7.2;
+  const BOAT_OFFSHORE = 128;
+
+  function isFence(kind) {
+    return kind === "wall" || kind === "gate";
+  }
 
   function troopLevel(kind) {
     return state.upgrades[kind] || 0;
@@ -309,29 +327,40 @@ export function createGame(canvas, ui) {
     if (base.repairPerSec) stats.repairPerSec = Math.round(base.repairPerSec * (1 + lv * 0.35));
     if (base.repairRange) stats.repairRange = +(base.repairRange * (1 + lv * 0.12)).toFixed(2);
     if (kind === "barracks") stats.housing = HOUSING_PER_BARRACKS + lv * 6;
+    if (kind === "keep") {
+      stats.hp = KEEP_HP[lv] ?? KEEP_HP[KEEP_HP.length - 1];
+      stats.radius = KEEP_RADIUS[lv] ?? KEEP_RADIUS[KEEP_RADIUS.length - 1];
+    }
     return stats;
   }
 
   function wallGroupOf(b) {
-    if (!b || b.kind !== "wall") return b ? [b] : [];
+    if (!b || !isFence(b.kind)) return b ? [b] : [];
     const gid = b.wallGroup ?? b.id;
-    return state.buildings.filter((item) => item.kind === "wall" && (item.wallGroup ?? item.id) === gid);
+    return state.buildings.filter((item) => isFence(item.kind) && (item.wallGroup ?? item.id) === gid);
+  }
+
+  function gateMode() {
+    return state.tool === "wall" && state.wallMode === "gate";
   }
 
   function pieceUpgradeCost(kind, level) {
     if (level >= UPGRADE_MAX) return 0;
     if (kind === "wall") return Math.round(6 * (1.6 + level * 1.2));
+    if (kind === "gate") return Math.round(5 * (1.6 + level * 1.2));
+    if (kind === "keep") return KEEP_UPGRADE_COST[level] || 0;
     return Math.round(BUILDINGS[kind].cost * (2.2 + level * 1.8));
   }
 
   function buildingUpgradeCost(b) {
-    const members = b.kind === "wall" ? wallGroupOf(b) : [b];
+    const members = isFence(b.kind) ? wallGroupOf(b) : [b];
     return members.reduce((sum, item) => sum + pieceUpgradeCost(item.kind, item.level || 0), 0);
   }
 
   function buildingName(kind, level = 0) {
-    const base = BUILDINGS[kind]?.name || kind;
     const lv = level || 0;
+    if (kind === "keep") return `${KEEP_TITLES[lv] || "Keep"} · Lv ${lv}`;
+    const base = BUILDINGS[kind]?.name || kind;
     return lv ? `${base} · Lv ${lv}` : base;
   }
 
@@ -341,7 +370,6 @@ export function createGame(canvas, ui) {
   }
 
   function unitIgnoresWalls(unit) {
-    if (unit.team === "ally") return true;
     const def = ENEMIES[unit.kind];
     return Boolean(def?.fly || def?.climb);
   }
@@ -354,17 +382,55 @@ export function createGame(canvas, ui) {
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
+  function settingsOpen() {
+    return Boolean(ui.settings && !ui.settings.hidden);
+  }
+
+  function openSettings() {
+    if (!ui.settings) return;
+    releaseLook();
+    ui.settings.hidden = false;
+    syncLookUi();
+  }
+
+  function closeSettings(resumeLook = true) {
+    if (!ui.settings) return;
+    ui.settings.hidden = true;
+    syncLookUi();
+    if (resumeLook && playing()) grabLook();
+  }
+
+  function grabLook() {
+    if (settingsOpen()) return false;
+    if (document.pointerLockElement === canvas) return true;
+    try {
+      const out = canvas.requestPointerLock({ unadjustedMovement: true });
+      if (out && typeof out.catch === "function") out.catch(() => canvas.requestPointerLock());
+    } catch {
+      canvas.requestPointerLock();
+    }
+    return document.pointerLockElement === canvas;
+  }
+
+  let unlockGuard = 0;
+
   function syncLookUi() {
     const locked = document.pointerLockElement === canvas;
-    if (ui.crosshair) ui.crosshair.hidden = !locked;
-    if (ui.lookPrompt) ui.lookPrompt.hidden = !playing() || locked;
+    const live = playing();
+    if (!locked && document.documentElement.classList.contains("looking")) unlockGuard = performance.now();
+    document.documentElement.classList.toggle("playing", live);
+    document.documentElement.classList.toggle("looking", locked);
+    if (ui.crosshair) ui.crosshair.hidden = !locked || settingsOpen();
+    if (ui.lookPrompt) ui.lookPrompt.hidden = true;
   }
 
   function reset() {
     Object.assign(state, freshState());
     view.resetCamera();
     releaseLook();
+    occupyKeep();
     ui.menu.hidden = false;
+    if (ui.settings) ui.settings.hidden = true;
     ui.end.hidden = true;
     ui.btnStart.disabled = false;
     ui.btnStart.hidden = false;
@@ -375,6 +441,54 @@ export function createGame(canvas, ui) {
 
   function occupyKeep() {
     for (const [c, r] of KEEP_TILES) state.world.set(c, r, { kind: "keep", id: "keep" });
+    if (state.buildings.some((b) => b.kind === "keep")) return;
+    const p = keepCenter();
+    const stats = buildingStats("keep", 0);
+    state.buildings.push({
+      id: "keep",
+      kind: "keep",
+      c: KEEP_TILES[0][0],
+      r: KEEP_TILES[0][1],
+      tilesW: 2,
+      tilesH: 2,
+      radius: stats.radius,
+      x: p.x,
+      z: p.z,
+      level: 0,
+      cost: 0,
+      hp: stats.hp,
+      maxHp: stats.hp,
+      cooldown: 0,
+      train: 0,
+      rally: null,
+    });
+    state.keepHp = stats.hp;
+  }
+
+  function keepBuilding() {
+    return state.buildings.find((b) => b.kind === "keep") || null;
+  }
+
+  function keepMaxHp() {
+    return keepBuilding()?.maxHp || KEEP_HP[0];
+  }
+
+  function openKeepInspect() {
+    const keep = keepBuilding();
+    if (!keep || !playing()) return false;
+    state.tool = null;
+    state.wallDraft = null;
+    state.marquee = null;
+    state.selected = keep.id;
+    renderInspect();
+    syncHud();
+    return true;
+  }
+
+  function aimPoint(e) {
+    if (document.pointerLockElement === canvas) return view.lookGround();
+    if (e) return view.groundAt(e.clientX, e.clientY);
+    return view.lookGround();
   }
 
   function play() {
@@ -384,7 +498,6 @@ export function createGame(canvas, ui) {
     audio.start();
     syncHud();
     syncLookUi();
-    setHint("Click to look. Drag a box to select troops, then click the ground to send them.");
   }
 
   function startWaves() {
@@ -394,9 +507,11 @@ export function createGame(canvas, ui) {
     state.waveTime = 0;
     state.spawnQueue = spawnQueueFor(0);
     state.spawned = 0;
+    state.boats = [];
+    primeBoats();
     ui.btnStart.hidden = true;
     audio.wave();
-    setHint("Wave 1 — swarms land from every shore.");
+    setHint("Wave 1");
     syncHud();
   }
 
@@ -406,8 +521,9 @@ export function createGame(canvas, ui) {
     state.waveTime = 0;
     state.spawnQueue = spawnQueueFor(n - 1);
     state.spawned = 0;
+    primeBoats();
     audio.wave();
-    setHint(`Wave ${n} of ${WAVE_COUNT}`);
+    setHint(`Wave ${n}`);
     syncHud();
   }
 
@@ -437,7 +553,12 @@ export function createGame(canvas, ui) {
     return state.buildings.find((b) => b.id === cell.id) || null;
   }
 
-  function wallPieceCost(index) {
+  function wallPieceCost(index, kind = "wall") {
+    if (kind === "gate") {
+      if (index <= 0) return 8;
+      if (index === 1) return 6;
+      return 4;
+    }
     if (index <= 0) return 10;
     if (index === 1) return 8;
     if (index === 2) return 6;
@@ -445,17 +566,25 @@ export function createGame(canvas, ui) {
     return 4;
   }
 
-  function wallTotalCost(count) {
+  function wallTotalCost(count, kind = "wall") {
     let sum = 0;
-    for (let i = 0; i < count; i += 1) sum += wallPieceCost(i);
+    for (let i = 0; i < count; i += 1) sum += wallPieceCost(i, kind);
     return sum;
   }
 
   function syncWalls() {
     state.world.setWalls(
       state.buildings
-        .filter((b) => b.kind === "wall")
-        .map((b) => ({ id: b.id, ax: b.ax, az: b.az, bx: b.bx, bz: b.bz, half: WALL_HALF }))
+        .filter((b) => isFence(b.kind))
+        .map((b) => ({
+          id: b.id,
+          ax: b.ax,
+          az: b.az,
+          bx: b.bx,
+          bz: b.bz,
+          half: WALL_HALF,
+          pass: b.kind === "gate",
+        }))
     );
   }
 
@@ -465,17 +594,16 @@ export function createGame(canvas, ui) {
 
   function pickBuilding(x, z) {
     let best = null;
-    let bestD = WALL_HALF + 0.28;
+    let bestD = Infinity;
     for (const b of state.buildings) {
-      if (b.kind !== "wall") continue;
-      const d = distToSegment(x, z, b.ax, b.az, b.bx, b.bz);
-      if (d < bestD) {
-        best = b;
-        bestD = d;
+      if (isFence(b.kind)) {
+        const d = distToSegment(x, z, b.ax, b.az, b.bx, b.bz);
+        if (d < WALL_HALF + 0.28 && d < bestD) {
+          best = b;
+          bestD = d;
+        }
+        continue;
       }
-    }
-    for (const b of state.buildings) {
-      if (b.kind === "wall") continue;
       const rad = (b.radius ?? stampRadius(b.kind)) + 0.2;
       const d = Math.hypot(x - b.x, z - b.z);
       if (d < rad && d < bestD) {
@@ -487,17 +615,17 @@ export function createGame(canvas, ui) {
   }
 
   function reachBuilding(from, b) {
-    if (b.kind === "wall") return distToSegment(from.x, from.z, b.ax, b.az, b.bx, b.bz);
+    if (isFence(b.kind)) return distToSegment(from.x, from.z, b.ax, b.az, b.bx, b.bz);
     return dist(from, b);
   }
 
-  function planWall(ax, az, hx, hz) {
+  function planWall(ax, az, hx, hz, kind = "wall") {
     const end = clampWallEnd(ax, az, hx, hz);
     const bx = end.x;
     const bz = end.z;
     const len = end.len;
     const n = wallChunkCount(len);
-    const cost = wallTotalCost(n);
+    const cost = wallTotalCost(n, kind);
     if (len < WALL_MIN_LEN) return { ok: false, ax, az, bx, bz, len, n, cost, reason: "too short" };
     const tiles = tilesTouchedByWall(ax, az, bx, bz);
     if (!tiles.length || !state.world.canBuildAll(tiles)) {
@@ -524,7 +652,7 @@ export function createGame(canvas, ui) {
   function wallRunTips() {
     const groups = new Map();
     for (const b of state.buildings) {
-      if (b.kind !== "wall") continue;
+      if (b.kind !== "wall" && b.kind !== "gate") continue;
       const id = b.wallGroup ?? b.id;
       let list = groups.get(id);
       if (!list) {
@@ -572,19 +700,293 @@ export function createGame(canvas, ui) {
     return best ? { x: best.x, z: best.z, snapped: true } : { x, z, snapped: false };
   }
 
-  function placeWall(ax, az, hx, hz) {
-    const plan = planWall(ax, az, hx, hz);
+  const GATE_PICK = WALL_HALF + 1.2;
+  const GATE_STUB_MIN = 0.32;
+
+  function nearestFence(x, z) {
+    let best = null;
+    let bestD = GATE_PICK;
+    for (const b of state.buildings) {
+      if (!isFence(b.kind)) continue;
+      const d = distToSegment(x, z, b.ax, b.az, b.bx, b.bz);
+      if (d < bestD) {
+        best = b;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  function yawUndirected(ax, az, bx, bz) {
+    let y = Math.atan2(-(bz - az), bx - ax);
+    y %= Math.PI;
+    if (y < 0) y += Math.PI;
+    return y;
+  }
+
+  function collinearWith(a, b) {
+    const ya = yawUndirected(a.ax, a.az, a.bx, a.bz);
+    const yb = yawUndirected(b.ax, b.az, b.bx, b.bz);
+    let d = Math.abs(ya - yb);
+    if (d > Math.PI / 2) d = Math.PI - d;
+    return d < 0.18;
+  }
+
+  function chainCollinear(start) {
+    const group = wallGroupOf(start).filter((p) => collinearWith(start, p));
+    const at = new Map();
+    const add = (x, z, piece) => {
+      const k = tipKey(x, z);
+      let list = at.get(k);
+      if (!list) {
+        list = [];
+        at.set(k, list);
+      }
+      list.push(piece);
+    };
+    for (const p of group) {
+      add(p.ax, p.az, p);
+      add(p.bx, p.bz, p);
+    }
+    const used = new Set([start.id]);
+    const walk = (fromX, fromZ) => {
+      const out = [];
+      let x = fromX;
+      let z = fromZ;
+      for (let n = 0; n < 80; n += 1) {
+        const list = at.get(tipKey(x, z)) || [];
+        const next = list.find((p) => !used.has(p.id));
+        if (!next) break;
+        used.add(next.id);
+        const startAtA = tipKey(next.ax, next.az) === tipKey(x, z);
+        out.push({
+          piece: next,
+          ax: startAtA ? next.ax : next.bx,
+          az: startAtA ? next.az : next.bz,
+          bx: startAtA ? next.bx : next.ax,
+          bz: startAtA ? next.bz : next.az,
+        });
+        x = startAtA ? next.bx : next.ax;
+        z = startAtA ? next.bz : next.az;
+      }
+      return out;
+    };
+    const back = walk(start.ax, start.az);
+    const forward = walk(start.bx, start.bz);
+    const orientedBack = back
+      .map((seg) => ({ piece: seg.piece, ax: seg.bx, az: seg.bz, bx: seg.ax, bz: seg.az }))
+      .reverse();
+    return [
+      ...orientedBack,
+      { piece: start, ax: start.ax, az: start.az, bx: start.bx, bz: start.bz },
+      ...forward,
+    ];
+  }
+
+  function runMetrics(chain) {
+    const segs = [];
+    let s = 0;
+    for (const seg of chain) {
+      const len = Math.hypot(seg.bx - seg.ax, seg.bz - seg.az);
+      segs.push({ ...seg, s0: s, s1: s + len, len });
+      s += len;
+    }
+    return { segs, total: s };
+  }
+
+  function pointAtS(metrics, s) {
+    const t = Math.max(0, Math.min(metrics.total, s));
+    const last = metrics.segs[metrics.segs.length - 1];
+    for (const seg of metrics.segs) {
+      if (t <= seg.s1 + 1e-6 || seg === last) {
+        const u = seg.len < 1e-8 ? 0 : (t - seg.s0) / seg.len;
+        return {
+          x: seg.ax + (seg.bx - seg.ax) * u,
+          z: seg.az + (seg.bz - seg.az) * u,
+        };
+      }
+    }
+    return { x: last.bx, z: last.bz };
+  }
+
+  function projectS(metrics, x, z) {
+    let bestS = 0;
+    let bestD = Infinity;
+    for (const seg of metrics.segs) {
+      const hit = closestOnSeg(x, z, seg.ax, seg.az, seg.bx, seg.bz);
+      const d = Math.hypot(x - hit.x, z - hit.z);
+      if (d < bestD) {
+        bestD = d;
+        const along = Math.hypot(hit.x - seg.ax, hit.z - seg.az);
+        bestS = seg.s0 + along;
+      }
+    }
+    return { s: bestS, dist: bestD };
+  }
+
+  function planGateAt(x, z) {
+    const near = nearestFence(x, z);
+    if (!near) return { ok: false, reason: "nowall" };
+    const chain = chainCollinear(near);
+    const metrics = runMetrics(chain);
+    if (!metrics.segs.length) return { ok: false, reason: "nowall" };
+    const proj = projectS(metrics, x, z);
+    const tooShort = metrics.total < GATE_LEN - 0.02;
+    const span = tooShort ? metrics.total : GATE_LEN;
+    let startS = proj.s - span / 2;
+    startS = Math.max(0, Math.min(Math.max(0, metrics.total - span), startS));
+    if (startS < GATE_STUB_MIN) startS = 0;
+    if (metrics.total - (startS + span) < GATE_STUB_MIN) startS = Math.max(0, metrics.total - span);
+    const endS = startS + span;
+    const a = pointAtS(metrics, startS);
+    const b = pointAtS(metrics, endS);
+    const yaw = wallYaw(a.x, a.z, b.x, b.z);
+    const level = Math.min(...chain.map((seg) => seg.piece.level || 0));
+    const cost = BUILDINGS.gate.cost;
+    let reason = null;
+    if (tooShort) reason = "short";
+    else {
+      for (const seg of metrics.segs) {
+        if (seg.piece.kind !== "gate") continue;
+        if (Math.min(endS, seg.s1) - Math.max(startS, seg.s0) > 0.12) {
+          reason = "overlap";
+          break;
+        }
+      }
+    }
+    if (!reason && !canAfford(cost)) reason = "gold";
+    return {
+      ok: !reason,
+      reason,
+      ax: a.x,
+      az: a.z,
+      bx: b.x,
+      bz: b.z,
+      yaw,
+      cost,
+      level,
+      startS,
+      endS,
+      metrics,
+      group: near.wallGroup ?? near.id,
+    };
+  }
+
+  function makeFencePiece(kind, template, ax, az, bx, bz, cost, hp) {
+    const length = Math.hypot(bx - ax, bz - az);
+    const x = (ax + bx) / 2;
+    const z = (az + bz) / 2;
+    const tile = worldToTile(x, z);
+    const def = buildingStats(kind, template.level || 0);
+    const maxHp = def.hp;
+    const ratio = template.maxHp ? template.hp / template.maxHp : 1;
+    return {
+      id: uid(),
+      kind,
+      wallGroup: template.wallGroup ?? template.id,
+      c: tile.c,
+      r: tile.r,
+      tilesW: 1,
+      tilesH: 1,
+      ax,
+      az,
+      bx,
+      bz,
+      x,
+      z,
+      yaw: wallYaw(ax, az, bx, bz),
+      length,
+      cost: Math.max(0, Math.round(cost)),
+      level: template.level || 0,
+      hp: Math.max(1, Math.round(hp ?? maxHp * ratio)),
+      maxHp,
+      cooldown: 0,
+      train: 0,
+      rally: null,
+    };
+  }
+
+  function placeGateAt(x, z) {
+    const plan = planGateAt(x, z);
+    if (!plan.ok) return false;
+    const drop = new Set();
+    const stubs = [];
+    let restoredCost = 0;
+    let template = null;
+    for (const seg of plan.metrics.segs) {
+      const overlap = Math.min(plan.endS, seg.s1) - Math.max(plan.startS, seg.s0);
+      if (overlap <= 0.02) continue;
+      const p = seg.piece;
+      if (p.kind === "gate") continue;
+      template = p;
+      drop.add(p.id);
+      const before = Math.max(0, plan.startS - seg.s0);
+      const after = Math.max(0, seg.s1 - plan.endS);
+      const pieceCost = p.cost ?? BUILDINGS[p.kind].cost;
+      restoredCost += pieceCost * (overlap / Math.max(0.01, seg.len));
+      if (before > GATE_STUB_MIN) {
+        const a = pointAtS(plan.metrics, seg.s0);
+        const b = pointAtS(plan.metrics, plan.startS);
+        stubs.push(
+          makeFencePiece("wall", p, a.x, a.z, b.x, b.z, pieceCost * (before / seg.len), p.hp * (before / seg.len))
+        );
+      }
+      if (after > GATE_STUB_MIN) {
+        const a = pointAtS(plan.metrics, plan.endS);
+        const b = pointAtS(plan.metrics, seg.s1);
+        stubs.push(
+          makeFencePiece("wall", p, a.x, a.z, b.x, b.z, pieceCost * (after / seg.len), p.hp * (after / seg.len))
+        );
+      }
+    }
+    if (!template || !spend(plan.cost)) return false;
+    state.buildings = state.buildings.filter((b) => !drop.has(b.id));
+    const gate = makeFencePiece("gate", template, plan.ax, plan.az, plan.bx, plan.bz, plan.cost);
+    gate.wallGroup = plan.group;
+    gate.restoredCost = restoredCost;
+    gate.length = GATE_LEN;
+    const stats = buildingStats("gate", gate.level);
+    gate.maxHp = stats.hp;
+    gate.hp = stats.hp;
+    state.buildings.push(...stubs, gate);
+    syncWalls();
+    state.selected = gate.id;
+    audio.place();
+    return true;
+  }
+
+  function restoreGateToWall(gate) {
+    const wall = makeFencePiece(
+      "wall",
+      gate,
+      gate.ax,
+      gate.az,
+      gate.bx,
+      gate.bz,
+      gate.restoredCost ?? BUILDINGS.wall.cost,
+    );
+    wall.wallGroup = gate.wallGroup ?? gate.id;
+    const stats = buildingStats("wall", wall.level);
+    wall.maxHp = stats.hp;
+    wall.hp = stats.hp;
+    state.buildings.push(wall);
+    return wall;
+  }
+
+  function placeWall(ax, az, hx, hz, kind = "wall") {
+    const plan = planWall(ax, az, hx, hz, kind);
     if (!plan.ok) return false;
     if (!spend(plan.cost)) return false;
     const group = uid();
     const pieces = wallPieces(plan.ax, plan.az, plan.bx, plan.bz);
+    const def = BUILDINGS[kind] || BUILDINGS.wall;
     let last = null;
     for (let i = 0; i < pieces.length; i += 1) {
       const piece = pieces[i];
       const tile = worldToTile(piece.x, piece.z);
       const b = {
         id: uid(),
-        kind: "wall",
+        kind,
         wallGroup: group,
         c: tile.c,
         r: tile.r,
@@ -598,10 +1000,10 @@ export function createGame(canvas, ui) {
         z: piece.z,
         yaw: piece.yaw,
         length: piece.length,
-        cost: wallPieceCost(i),
+        cost: wallPieceCost(i, kind),
         level: 0,
-        hp: BUILDINGS.wall.hp,
-        maxHp: BUILDINGS.wall.hp,
+        hp: def.hp,
+        maxHp: def.hp,
         cooldown: 0,
         train: 0,
         rally: null,
@@ -630,14 +1032,15 @@ export function createGame(canvas, ui) {
 
   function buildingConflicts(x, z, radius, ignoreId = null) {
     const keep = keepCenter();
-    if (Math.hypot(x - keep.x, z - keep.z) < radius + 2.1) return true;
+    const keepR = keepBuilding()?.radius ?? KEEP_RADIUS[0];
+    if (Math.hypot(x - keep.x, z - keep.z) < radius + keepR) return true;
     for (const b of state.buildings) {
-      if (b.id === ignoreId) continue;
-      if (b.kind === "wall") {
-        if (distToSegment(x, z, b.ax, b.az, b.bx, b.bz) < radius + WALL_HALF + 0.08) return true;
+      if (b.id === ignoreId || b.kind === "keep") continue;
+      if (isFence(b.kind)) {
+        if (distToSegment(x, z, b.ax, b.az, b.bx, b.bz) < radius + WALL_HALF + 0.02) return true;
       } else {
         const r = b.radius ?? stampRadius(b.kind);
-        if (Math.hypot(x - b.x, z - b.z) < radius + r + 0.1) return true;
+        if (Math.hypot(x - b.x, z - b.z) < radius + r + 0.04) return true;
       }
     }
     return false;
@@ -645,17 +1048,17 @@ export function createGame(canvas, ui) {
 
   function canPlaceAt(kind, x, z) {
     const def = BUILDINGS[kind];
-    if (!def || kind === "wall") return false;
+    if (!def || isFence(kind) || kind === "keep") return false;
     if (!canPlaceKind(kind) || !canAfford(def.cost)) return false;
     const radius = stampRadius(kind);
     const tiles = tilesTouchedByCircle(x, z, radius);
-    if (!tiles.length || !state.world.canBuildAll(tiles) || footprintBlocked(tiles)) return false;
+    if (!state.world.canPlantAll(tiles) || footprintBlocked(tiles)) return false;
     if (buildingConflicts(x, z, radius)) return false;
     return true;
   }
 
   function placeBuilding(kind, x, z) {
-    if (kind === "wall") return false;
+    if (isFence(kind) || kind === "keep") return false;
     const def = BUILDINGS[kind];
     if (!def) return false;
     if (!canPlaceKind(kind)) {
@@ -664,7 +1067,7 @@ export function createGame(canvas, ui) {
     }
     const radius = stampRadius(kind);
     const tiles = tilesTouchedByCircle(x, z, radius);
-    if (!tiles.length || !state.world.canBuildAll(tiles) || footprintBlocked(tiles) || buildingConflicts(x, z, radius)) {
+    if (!state.world.canPlantAll(tiles) || footprintBlocked(tiles) || buildingConflicts(x, z, radius)) {
       return false;
     }
     if (!spend(def.cost)) return false;
@@ -694,7 +1097,7 @@ export function createGame(canvas, ui) {
       rally,
     };
     state.buildings.push(b);
-    state.world.occupy(tiles, { kind: "building", id: b.id });
+    state.world.occupyFree(tiles, { kind: "building", id: b.id });
     state.selected = b.id;
     audio.place();
     return true;
@@ -702,12 +1105,13 @@ export function createGame(canvas, ui) {
 
   function sellSelected() {
     const b = state.buildings.find((item) => item.id === state.selected);
-    if (!b) return;
+    if (!b || b.kind === "keep") return;
     state.gold += Math.round((b.cost ?? BUILDINGS[b.kind].cost) * SELL_REFUND);
     if (!admin && state.phase === "prep") state.gold = Math.min(PREP_GOLD_CAP, state.gold);
     state.world.clearId(b.id);
     state.buildings = state.buildings.filter((item) => item.id !== b.id);
-    if (b.kind === "wall") syncWalls();
+    if (b.kind === "gate") restoreGateToWall(b);
+    if (isFence(b.kind)) syncWalls();
     for (const t of state.troops) {
       if (t.home === b.id) t.home = null;
     }
@@ -795,7 +1199,7 @@ export function createGame(canvas, ui) {
   function upgradeBuilding() {
     const b = selectedBuilding();
     if (!b) return false;
-    const members = b.kind === "wall" ? wallGroupOf(b) : [b];
+    const members = isFence(b.kind) ? wallGroupOf(b) : [b];
     const lv = Math.min(...members.map((item) => item.level || 0));
     if (lv >= UPGRADE_MAX) return false;
     const cost = buildingUpgradeCost(b);
@@ -810,8 +1214,10 @@ export function createGame(canvas, ui) {
       item.maxHp = after.hp;
       item.hp = Math.max(1, Math.round(after.hp * ratio));
       item.cost = (item.cost ?? BUILDINGS[item.kind].cost) + paid;
+      if (after.radius) item.radius = after.radius;
     }
-    const label = b.kind === "wall" && members.length > 1 ? `Wall (${members.length} pieces)` : BUILDINGS[b.kind].name;
+    if (b.kind === "keep") state.keepHp = b.hp;
+    const label = b.kind === "keep" ? KEEP_TITLES[lv + 1] || "Keep" : isFence(b.kind) && members.length > 1 ? "Wall" : BUILDINGS[b.kind].name;
     setHint(`${label} is now level ${lv + 1}.`);
     renderInspect();
     syncHud();
@@ -855,11 +1261,7 @@ export function createGame(canvas, ui) {
     }
   }
 
-  function spawnPack(type, count, lane) {
-    const def = ENEMIES[type];
-    if (!def || !SPAWN_TILES.length) return false;
-    const n = Math.min(count, MAX_ENEMIES - state.enemies.length);
-    if (n <= 0) return true;
+  function laneHeading(lane) {
     const origin = SPAWN_TILES[((lane % SPAWN_TILES.length) + SPAWN_TILES.length) % SPAWN_TILES.length];
     const pos = tileCenter(origin[0], origin[1]);
     const keep = keepCenter();
@@ -868,8 +1270,77 @@ export function createGame(canvas, ui) {
     const fl = Math.hypot(fx, fz) || 1;
     fx /= fl;
     fz /= fl;
-    const rx = -fz;
-    const rz = fx;
+    return { x: pos.x, z: pos.z, fx, fz, rx: -fz, rz: fx, yaw: Math.atan2(fx, fz) };
+  }
+
+  function boatWorldPos(boat) {
+    const h = laneHeading(boat.lane);
+    let along = 0;
+    if (boat.phase === "arrive") {
+      const u = Math.min(1, boat.t / BOAT_ARRIVE);
+      const ease = u * u * (3 - 2 * u);
+      along = -BOAT_OFFSHORE * (1 - ease);
+    } else if (boat.phase === "leave") {
+      const u = Math.min(1, boat.leaveT / BOAT_LEAVE);
+      along = -BOAT_OFFSHORE * (u * u);
+    }
+    return { x: h.x + h.fx * along, z: h.z + h.fz * along, yaw: h.yaw };
+  }
+
+  function ensureBoat(lane) {
+    let boat = state.boats.find((b) => b.lane === lane && b.phase !== "leave");
+    if (boat) return boat;
+    boat = { id: uid(), lane, t: 0, leaveT: 0, phase: "arrive" };
+    state.boats.push(boat);
+    return boat;
+  }
+
+  function primeBoats() {
+    const lanes = new Set();
+    for (const q of state.spawnQueue) lanes.add(q.lane ?? 0);
+    for (const lane of lanes) ensureBoat(lane);
+  }
+
+  function stepBoats(dt) {
+    const pending = new Set();
+    for (const q of state.spawnQueue) pending.add(q.lane ?? 0);
+    for (const boat of state.boats) {
+      if (boat.phase === "arrive") {
+        boat.t += dt;
+        if (boat.t >= BOAT_ARRIVE) boat.phase = "wait";
+      } else if (boat.phase === "wait") {
+        boat.t += dt;
+        if (!pending.has(boat.lane)) {
+          boat.phase = "leave";
+          boat.leaveT = 0;
+        }
+      } else {
+        boat.leaveT += dt;
+      }
+    }
+    state.boats = state.boats.filter((b) => b.phase !== "leave" || b.leaveT < BOAT_LEAVE);
+  }
+
+  function boatViewList() {
+    return state.boats.map((boat) => {
+      const pos = boatWorldPos(boat);
+      return { id: boat.id, x: pos.x, z: pos.z, yaw: pos.yaw };
+    });
+  }
+
+  function spawnPack(type, count, lane) {
+    const def = ENEMIES[type];
+    if (!def || !SPAWN_TILES.length) return false;
+    const n = Math.min(count, MAX_ENEMIES - state.enemies.length);
+    if (n <= 0) return true;
+    const boat = ensureBoat(lane);
+    if (boat.phase === "arrive") return false;
+    const h = laneHeading(lane);
+    const pos = { x: h.x, z: h.z };
+    const fx = h.fx;
+    const fz = h.fz;
+    const rx = h.rx;
+    const rz = h.rz;
     const cols = Math.max(8, Math.min(12, Math.ceil(Math.sqrt(n * 1.8))));
     for (let i = 0; i < n; i += 1) {
       const col = i % cols;
@@ -914,13 +1385,18 @@ export function createGame(canvas, ui) {
   }
 
   function solidBuildingAt(x, z) {
-    const tile = worldToTile(x, z);
-    const b = buildingAt(tile.c, tile.r);
-    return b && b.kind !== "wall" && b.kind !== "spikes" ? b : null;
+    for (const b of state.buildings) {
+      if (isFence(b.kind) || b.kind === "spikes") continue;
+      const rad = b.radius ?? stampRadius(b.kind);
+      if (Math.hypot(x - b.x, z - b.z) < rad) return b;
+    }
+    return null;
   }
 
-  function enemyBlockedAt(x, z) {
-    if (state.world.wallHitsPoint(x, z, 0.16)) return true;
+  function unitBlockedAt(unit, x, z) {
+    if (unitIgnoresWalls(unit)) return Boolean(solidBuildingAt(x, z));
+    const passGates = unit.team === "ally";
+    if (state.world.wallHitsPoint(x, z, 0.16, passGates)) return true;
     return Boolean(solidBuildingAt(x, z));
   }
 
@@ -933,10 +1409,10 @@ export function createGame(canvas, ui) {
     const step = speed * mul * TILE * dt;
     const nx = unit.x + (dx / len) * Math.min(step, len);
     const nz = unit.z + (dz / len) * Math.min(step, len);
-    const blocked = !unitIgnoresWalls(unit) && enemyBlockedAt(nx, nz);
+    const blocked = unitBlockedAt(unit, nx, nz);
     if (blocked) {
-      if (!enemyBlockedAt(nx, unit.z)) unit.x = nx;
-      else if (!enemyBlockedAt(unit.x, nz)) unit.z = nz;
+      if (!unitBlockedAt(unit, nx, unit.z)) unit.x = nx;
+      else if (!unitBlockedAt(unit, unit.x, nz)) unit.z = nz;
     } else {
       unit.x = nx;
       unit.z = nz;
@@ -990,18 +1466,19 @@ export function createGame(canvas, ui) {
       const step = Math.min(n, 2.2 * dt);
       const nx = u.x + (ox / n) * step;
       const nz = u.z + (oz / n) * step;
-      if (unitIgnoresWalls(u) || !enemyBlockedAt(nx, nz)) {
+      if (unitIgnoresWalls(u) || !unitBlockedAt(u, nx, nz)) {
         u.x = nx;
         u.z = nz;
       }
     }
   }
 
-  function nearestEnemy(from, radius) {
+  function nearestEnemy(from, radius, pred) {
     let best = null;
     let bestD = radius * radius;
     for (const e of state.enemies) {
       if (e.hp <= 0) continue;
+      if (pred && !pred(e)) continue;
       const dx = from.x - e.x;
       const dz = from.z - e.z;
       const d2 = dx * dx + dz * dz;
@@ -1041,17 +1518,25 @@ export function createGame(canvas, ui) {
     unit.aimYaw = Math.atan2(target.x - unit.x, target.z - unit.z);
   }
 
+  function towerCanTarget(kind, e) {
+    const fly = Boolean(e.fly || ENEMIES[e.kind]?.fly);
+    if (kind === "air") return fly;
+    if (kind === "crossbow" || kind === "cannon") return !fly;
+    return true;
+  }
+
   function stepTowers(dt) {
     for (const b of state.buildings) {
       const def = buildingStats(b.kind, b.level);
       if (!def?.range) continue;
-      const target = nearestEnemy(b, def.range * TILE);
+      const target = nearestEnemy(b, def.range * TILE, (e) => towerCanTarget(b.kind, e));
       if (target) faceToward(b, target);
       b.cooldown -= dt;
       if (b.cooldown > 0 || !target) continue;
       b.cooldown = def.fireRate;
       const yaw = b.aimYaw || 0;
-      const muzzle = b.kind === "cannon" ? 0.9 : b.kind === "mage" ? 0.45 : 0.7;
+      const muzzle = b.kind === "cannon" || b.kind === "air" ? 0.9 : b.kind === "mage" ? 0.45 : 0.7;
+      const fly = Boolean(target.fly || ENEMIES[target.kind]?.fly);
       state.projectiles.push({
         id: uid(),
         x: b.x + Math.sin(yaw) * muzzle,
@@ -1059,11 +1544,12 @@ export function createGame(canvas, ui) {
         tx: target.x,
         tz: target.z,
         target: target.id,
-        damage: def.damage,
+        damage: b.kind === "mage" && fly ? def.damage * 0.5 : def.damage,
         splash: def.splash || 0,
         slow: def.slow || 0,
         fx: def.projectile || "bolt",
         speed: def.speed,
+        airOnly: b.kind === "air",
       });
       audio.shoot();
     }
@@ -1094,7 +1580,10 @@ export function createGame(canvas, ui) {
         if (b === hall || b.hp <= 0 || b.hp >= b.maxHp) continue;
         const dx = b.x - hall.x;
         const dz = b.z - hall.z;
-        if (dx * dx + dz * dz <= reach2) b.hp = Math.min(b.maxHp, b.hp + heal);
+        if (dx * dx + dz * dz <= reach2) {
+          b.hp = Math.min(b.maxHp, b.hp + heal);
+          if (b.kind === "keep") state.keepHp = b.hp;
+        }
       }
     }
   }
@@ -1129,6 +1618,7 @@ export function createGame(canvas, ui) {
           const ex = e.x - impactX;
           const ez = e.z - impactZ;
           if (ex * ex + ez * ez <= reach2) {
+            if (p.airOnly && !(e.fly || ENEMIES[e.kind]?.fly)) continue;
             e.hp -= p.damage;
             if (p.slow) e.slow = Math.max(e.slow || 0, p.slow);
             hit = true;
@@ -1225,11 +1715,15 @@ export function createGame(canvas, ui) {
 
       const kdx = keep.x - e.x;
       const kdz = keep.z - e.z;
-      const keepReach = def.range * TILE + 1.45;
+      const keepR = keepBuilding()?.radius ?? KEEP_RADIUS[0];
+      const keepReach = def.range * TILE * 0.45 + keepR;
       if (kdx * kdx + kdz * kdz <= keepReach * keepReach) {
         faceToward(e, keep);
         if (e.cooldown <= 0) {
-          state.keepHp -= def.keepDamage ?? def.damage;
+          const hit = def.keepDamage ?? def.damage;
+          state.keepHp -= hit;
+          const citadel = keepBuilding();
+          if (citadel) citadel.hp = state.keepHp;
           e.cooldown = def.siege ? 1.05 : 0.9;
           audio.keepHurt();
         }
@@ -1309,7 +1803,7 @@ export function createGame(canvas, ui) {
         state.world.clearId(b.id);
         state.buildings = state.buildings.filter((item) => item.id !== b.id);
         if (state.selected === b.id) state.selected = null;
-        if (b.kind === "wall") syncWalls();
+        if (isFence(b.kind)) syncWalls();
       }
     }
   }
@@ -1317,10 +1811,15 @@ export function createGame(canvas, ui) {
   function stepSpawns(dt) {
     if (state.phase !== "combat") return;
     state.waveTime += dt;
-    while (state.spawnQueue.length && state.spawnQueue[0].t <= state.waveTime) {
+    while (state.spawnQueue.length) {
       if (state.enemies.length >= MAX_ENEMIES) break;
       const next = state.spawnQueue[0];
-      if (spawnPack(next.type, next.count || 1, next.lane ?? state.spawnLane)) {
+      const lane = next.lane ?? state.spawnLane;
+      const boat = ensureBoat(lane);
+      if (boat.phase === "arrive") break;
+      const sinceLand = boat.t - BOAT_ARRIVE;
+      if (next.t > sinceLand) break;
+      if (spawnPack(next.type, next.count || 1, lane)) {
         state.spawnQueue.shift();
         state.spawned += next.count || 1;
         state.spawnLane += 1;
@@ -1333,7 +1832,7 @@ export function createGame(canvas, ui) {
       }
       state.phase = "between";
       state.between = 2;
-      setHint("Wave cleared. Next incoming…");
+    setHint("Wave cleared");
     }
   }
 
@@ -1364,8 +1863,20 @@ export function createGame(canvas, ui) {
     syncLookUi();
   }
 
+  let hintTimer = 0;
   function setHint(text) {
+    if (!ui.hint) return;
+    if (!text) {
+      ui.hint.hidden = true;
+      ui.hint.textContent = "";
+      return;
+    }
+    ui.hint.hidden = false;
     ui.hint.textContent = text;
+    window.clearTimeout(hintTimer);
+    hintTimer = window.setTimeout(() => {
+      ui.hint.hidden = true;
+    }, 2200);
   }
 
   function selectedBuilding() {
@@ -1376,12 +1887,15 @@ export function createGame(canvas, ui) {
     const stats = buildingStats(b.kind, b.level);
     const lv = b.level || 0;
     let meta = `Lv ${lv} / ${UPGRADE_MAX} · HP ${Math.ceil(b.hp)} / ${b.maxHp}`;
-    if (b.kind === "wall") {
+    if (b.kind === "keep") meta += " · the island’s heart";
+    if (isFence(b.kind)) {
       const n = wallGroupOf(b).length;
-      meta += n > 1 ? ` · ${n} pieces` : " · wall piece";
+      if (b.kind === "gate") meta += " · on this wall";
+      else meta += n > 1 ? ` · ${n} pieces` : " · wall piece";
     }
     if (stats.range) meta += ` · range ${stats.range}`;
     if (stats.damage) meta += ` · ${stats.damage} dmg`;
+    if (b.kind === "air") meta += " · bats only";
     if (b.kind === "farm") {
       meta += ` · ${farmIncomePerSec().toFixed(1)}g/s from ${countKind("farm")}/${MAX_FARMS}`;
       meta += " · extra farms earn less";
@@ -1441,11 +1955,12 @@ export function createGame(canvas, ui) {
     if (b) ui.inspectMeta.textContent = inspectMetaText(b);
     const buildBtn = ui.inspect.querySelector("[data-upgrade-building]");
     if (buildBtn && b) {
-      const lv = b.kind === "wall" ? Math.min(...wallGroupOf(b).map((item) => item.level || 0)) : b.level || 0;
+      const lv = isFence(b.kind) ? Math.min(...wallGroupOf(b).map((item) => item.level || 0)) : b.level || 0;
       const cost = buildingUpgradeCost(b);
       buildBtn.disabled = lv >= UPGRADE_MAX || !canAfford(cost);
       if (lv >= UPGRADE_MAX) buildBtn.textContent = "Maxed";
-      else if (b.kind === "wall") {
+      else if (b.kind === "keep") buildBtn.textContent = `Upgrade to ${KEEP_TITLES[lv + 1]} ${cost}g`;
+      else if (isFence(b.kind)) {
         const n = wallGroupOf(b).length;
         buildBtn.textContent = n > 1 ? `Upgrade wall ${cost}g` : `Upgrade ${cost}g`;
       } else buildBtn.textContent = `Upgrade ${cost}g`;
@@ -1552,10 +2067,12 @@ export function createGame(canvas, ui) {
       refreshBarracksMenu();
     }
     addBuildingUpgradeButton();
-    const sell = document.createElement("button");
-    sell.textContent = `Sell (+${b.cost ?? BUILDINGS[b.kind].cost}g)`;
-    sell.addEventListener("click", sellSelected);
-    ui.inspectActions.appendChild(sell);
+    if (b.kind !== "keep") {
+      const sell = document.createElement("button");
+      sell.textContent = `Sell (+${b.cost ?? BUILDINGS[b.kind].cost}g)`;
+      sell.addEventListener("click", sellSelected);
+      ui.inspectActions.appendChild(sell);
+    }
     refreshBarracksMenu();
   }
 
@@ -1565,31 +2082,92 @@ export function createGame(canvas, ui) {
     ui.gold.closest(".meter")?.classList.toggle("admin", admin);
     ui.wave.textContent = state.phase === "prep" || state.phase === "menu" ? "—" : `${state.wave} / ${WAVE_COUNT}`;
     ui.keepHp.textContent = String(Math.max(0, Math.ceil(state.keepHp)));
-    ui.keepFill.style.width = `${Math.max(0, (state.keepHp / KEEP_MAX_HP) * 100)}%`;
+    ui.keepFill.style.width = `${Math.max(0, (state.keepHp / keepMaxHp()) * 100)}%`;
     if (ui.army) ui.army.textContent = `${Math.round(armyHousing())}/${armyCap()}`;
     if (ui.armyFill) {
       const cap = Math.max(1, armyCap());
       ui.armyFill.style.width = `${Math.min(100, (armyHousing() / cap) * 100)}%`;
     }
     ui.btnMute.textContent = audio.isMuted() ? "Unmute" : "Mute";
-    for (const btn of ui.buildBar.querySelectorAll("[data-build]")) {
-      btn.classList.toggle("active", btn.dataset.build === state.tool);
-      const kind = btn.dataset.build;
+    syncHotbar();
+    syncAimTool();
+    view.setAtmosphere?.({ wave: state.wave, phase: state.phase });
+  }
+
+  const HOTBAR_LABEL = {
+    wall: "Wall",
+    gate: "Gate",
+    crossbow: "Crossbow",
+    cannon: "Cannon",
+    mage: "Mage",
+    air: "Air",
+    spikes: "Spikes",
+    farm: "Farm",
+    barracks: "Barracks",
+    workshop: "Workshop",
+  };
+
+  function ensureHotbar() {
+    if (!ui.hotbar || ui.hotbar.childElementCount) return;
+    HOTBAR.forEach((kind, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.kind = kind;
+      const key = document.createElement("kbd");
+      key.textContent = String(i === 9 ? 0 : i + 1);
+      const name = document.createElement("strong");
+      name.textContent = HOTBAR_LABEL[kind] || BUILDINGS[kind].name;
+      const cost = document.createElement("em");
+      btn.append(key, name, cost);
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setTool(kind);
+      });
+      ui.hotbar.appendChild(btn);
+    });
+  }
+
+  function syncHotbar() {
+    ensureHotbar();
+    if (!ui.hotbar) return;
+    for (const btn of ui.hotbar.children) {
+      const kind = btn.dataset.kind;
       const def = BUILDINGS[kind];
-      const em = btn.querySelector("em");
-      if (kind === "farm") {
-        const n = countKind("farm");
-        if (em) em.textContent = `${def.cost}g · ${n}/${MAX_FARMS}`;
-        btn.classList.toggle("capped", n >= MAX_FARMS);
-      } else if (em && def && !def.draw) {
-        em.textContent = `${def.cost}g`;
-      }
-      btn.classList.toggle("unaffordable", Boolean(def && !def.draw && !canAfford(def.cost) && kind !== "farm"));
+      const cost = btn.querySelector("em");
+      if (kind === "farm") cost.textContent = `${def.cost}g · ${countKind("farm")}/${MAX_FARMS}`;
+      else if (def.draw) cost.textContent = `${def.cost}g+`;
+      else cost.textContent = `${def.cost}g`;
+      btn.classList.toggle("on", state.tool === kind);
+      btn.classList.toggle("bad", Boolean(def && !canAfford(def.cost)));
     }
+  }
+  function syncAimTool() {
+    const el = ui.aimTool;
+    if (!el) return;
+    if (!state.tool) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    const def = BUILDINGS[state.tool];
+    const idx = HOTBAR.indexOf(state.tool);
+    const slot = idx === 9 ? 0 : idx + 1;
+    let cost = def.draw ? `${def.cost}g+` : `${def.cost}g`;
+    if (state.tool === "farm") cost = `${def.cost}g · ${countKind("farm")}/${MAX_FARMS}`;
+    if (gateMode()) {
+      el.hidden = false;
+      el.textContent = `${slot}  Gate  ·  ${BUILDINGS.gate.cost}g  ·  G`;
+      el.classList.toggle("bad", !canAfford(BUILDINGS.gate.cost));
+      return;
+    }
+    el.hidden = false;
+    el.textContent = `${slot}  ${def.name}  ·  ${cost}${state.tool === "wall" ? "  ·  G gate" : ""}`;
+    el.classList.toggle("bad", Boolean(def && !def.draw && !canAfford(def.cost) && state.tool !== "farm"));
   }
 
   function rangeInfo() {
-    if (state.tool === "wall") return null;
+    if (isFence(state.tool)) return null;
     const ghost = state.tool && BUILDINGS[state.tool]?.range && state.pointer;
     if (ghost) {
       return { x: state.pointer.x, z: state.pointer.z, radius: BUILDINGS[state.tool].range * TILE };
@@ -1614,15 +2192,35 @@ export function createGame(canvas, ui) {
         ? { ax: state.marquee.ax, az: state.marquee.az, bx: state.marquee.bx, bz: state.marquee.bz }
         : null,
       showGrid: false,
-      hoverTile: state.hover,
-      ghost: ghostPreview(),
-      range: rangeInfo(),
+      hoverTile: null,
+      ghost: playing() ? ghostPreview() : null,
+      range: playing() ? rangeInfo() : null,
+      boats: boatViewList(),
+      atmosphere: { wave: state.wave, phase: state.phase },
       keepHp: state.keepHp,
-      keepMax: KEEP_MAX_HP,
+      keepMax: keepMaxHp(),
     };
   }
 
   function ghostPreview() {
+    if (gateMode()) {
+      const p = state.pointer;
+      if (!p) return null;
+      const plan = planGateAt(p.x, p.z);
+      if (plan.reason === "nowall") return null;
+      return {
+        kind: "gate",
+        mode: "insert",
+        ax: plan.ax,
+        az: plan.az,
+        bx: plan.bx,
+        bz: plan.bz,
+        yaw: plan.yaw,
+        ok: plan.ok,
+        cost: plan.cost,
+        level: plan.level || 0,
+      };
+    }
     if (state.tool === "wall") {
       const p = state.pointer;
       if (!p) return null;
@@ -1642,7 +2240,7 @@ export function createGame(canvas, ui) {
         };
       }
       const end = snapToWallTip(p.x, p.z, state.wallDraft);
-      const plan = planWall(state.wallDraft.x, state.wallDraft.z, end.x, end.z);
+      const plan = planWall(state.wallDraft.x, state.wallDraft.z, end.x, end.z, "wall");
       return {
         kind: "wall",
         mode: "stretch",
@@ -1676,18 +2274,6 @@ export function createGame(canvas, ui) {
     state.pointer = { x: g.x, z: g.z };
     const tile = worldToTile(g.x, g.z);
     state.hover = inBounds(tile.c, tile.r) ? tile : null;
-    if (state.tool === "wall" && state.wallDraft && state.pointer) {
-      const end = snapToWallTip(state.pointer.x, state.pointer.z, state.wallDraft);
-      const plan = planWall(state.wallDraft.x, state.wallDraft.z, end.x, end.z);
-      const snapNote = end.snapped ? " Snapped to a wall end." : "";
-      if (!plan.ok) setHint((plan.reason === "gold" ? `Need ${plan.cost}g for this wall.` : "Wall must stay on open grass.") + snapNote);
-      else setHint(`Wall · ${plan.cost}g · ${plan.n} piece${plan.n === 1 ? "" : "s"} — click to place.${snapNote}`);
-    } else if (state.tool === "farm" && countKind("farm") >= MAX_FARMS) {
-      setHint(`Farm cap reached (${MAX_FARMS}). Sell one to build another.`);
-    } else if (state.tool && state.tool !== "wall") {
-      if (canPlaceAt(state.tool, g.x, g.z)) setHint("Click to place on open grass.");
-      else setHint("Needs open grass, clear of walls and other buildings.");
-    }
   }
 
   function troopsInBox(ax, az, bx, bz) {
@@ -1714,9 +2300,6 @@ export function createGame(canvas, ui) {
   function setPicked(units, add) {
     if (!add) state.picked.clear();
     for (const t of units) state.picked.add(t.id);
-    const n = state.picked.size;
-    if (n) setHint(`${n} selected. Click the ground to send them. Q clears, E selects all.`);
-    else setHint("Drag a box around troops to select them.");
   }
 
   function commandMove(x, z) {
@@ -1729,7 +2312,6 @@ export function createGame(canvas, ui) {
       const oz = (Math.floor(i / cols) - (rows - 1) / 2) * 0.5;
       t.order = { x: x + ox, z: z + oz };
     });
-    setHint(`Sent ${units.length}. Drag another box to select a new group.`);
     return true;
   }
 
@@ -1752,6 +2334,10 @@ export function createGame(canvas, ui) {
       return;
     }
     const tile = worldToTile(box.ax, box.az);
+    if (isKeepTile(tile.c, tile.r)) {
+      openKeepInspect();
+      return;
+    }
     const b = pickBuilding(box.ax, box.az);
     if (b) {
       state.selected = b.id;
@@ -1768,17 +2354,15 @@ export function createGame(canvas, ui) {
     renderInspect();
   }
 
-  function onPointerMove(e) {
+  function onPointerMove() {
     if (document.pointerLockElement === canvas) return;
-    setHoverFromWorld(view.groundAt(e.clientX, e.clientY));
   }
 
   function onPointerDown(e) {
-    if (state.phase === "menu" || state.phase === "win" || state.phase === "lose") return;
+    if (state.phase === "menu" || state.phase === "win" || state.phase === "lose" || settingsOpen()) return;
     if (e.button === 2) {
       if (state.wallDraft) {
         state.wallDraft = null;
-        setHint("Click a starting point for the wall.");
         return;
       }
       if (state.tool) {
@@ -1792,33 +2376,52 @@ export function createGame(canvas, ui) {
       return;
     }
     if (e.button !== 0) return;
-    if (document.pointerLockElement !== canvas) {
-      canvas.requestPointerLock();
+    const g = aimPoint(e);
+    if (g && !state.tool && !gateMode()) {
+      const tile = worldToTile(g.x, g.z);
+      const hit = pickBuilding(g.x, g.z);
+      if (hit?.kind === "keep" || isKeepTile(tile.c, tile.r)) {
+        openKeepInspect();
+        grabLook();
+        return;
+      }
+    }
+    if (!grabLook()) return;
+    const spot = view.lookGround() || g;
+    if (!spot) return;
+    const tile = worldToTile(spot.x, spot.z);
+    if (!inBounds(tile.c, tile.r)) return;
+
+    if (gateMode()) {
+      if (!placeGateAt(spot.x, spot.z)) {
+        const plan = planGateAt(spot.x, spot.z);
+        if (plan.reason === "short") setHint("Wall too short for a gate.");
+        else if (plan.reason === "overlap") setHint("That stretch already has a gate.");
+        else if (plan.reason === "gold") setHint(`Need ${plan.cost}g for a gate.`);
+        else setHint("Aim at a wall to place a gate.");
+      }
+      renderInspect();
+      syncHud();
       return;
     }
-    const g = view.lookGround();
-    if (!g) return;
-    const tile = worldToTile(g.x, g.z);
-    if (!inBounds(tile.c, tile.r)) return;
 
     if (state.tool === "wall") {
       if (!state.wallDraft) {
-        const aim = snapToWallTip(g.x, g.z);
-        if (!aim.snapped && !canWallPoint(aim.x, aim.z)) {
-          setHint("Start the wall on open grass, or snap to a wall end.");
+        const start = snapToWallTip(spot.x, spot.z);
+        if (!start.snapped && !canWallPoint(start.x, start.z)) {
+          setHint("Need open grass, or snap to a wall end.");
           return;
         }
-        state.wallDraft = { x: aim.x, z: aim.z, snapped: aim.snapped };
-        setHint(aim.snapped ? "Snapped. Click the other end of the wall." : "Click the other end of the wall.");
+        state.wallDraft = { x: start.x, z: start.z, snapped: start.snapped };
         return;
       }
-      const end = snapToWallTip(g.x, g.z, state.wallDraft);
-      const placed = placeWall(state.wallDraft.x, state.wallDraft.z, end.x, end.z);
+      const end = snapToWallTip(spot.x, spot.z, state.wallDraft);
+      const placed = placeWall(state.wallDraft.x, state.wallDraft.z, end.x, end.z, "wall");
       if (placed) {
         state.wallDraft = null;
-        setHint("Wall raised. Click another start, or pick a different building.");
       } else {
-        setHint("That stretch is not valid. Click a different end, or right-click to cancel.");
+        const plan = planWall(state.wallDraft.x, state.wallDraft.z, end.x, end.z, "wall");
+        setHint(plan.reason === "gold" ? `Need ${plan.cost}g.` : "That stretch is blocked.");
       }
       renderInspect();
       syncHud();
@@ -1826,15 +2429,19 @@ export function createGame(canvas, ui) {
     }
 
     if (state.tool) {
-      if (!placeBuilding(state.tool, g.x, g.z)) {
-        setHint("Needs open grass, clear of walls and other buildings.");
+      if (!placeBuilding(state.tool, spot.x, spot.z)) {
+        const def = BUILDINGS[state.tool];
+        if (state.tool === "farm" && countKind("farm") >= MAX_FARMS) {
+          /* toasted in placeBuilding */
+        } else if (def && !canAfford(def.cost)) setHint(`Need ${def.cost}g.`);
+        else setHint("Needs open grass.");
       }
       renderInspect();
       syncHud();
       return;
     }
 
-    state.marquee = { ax: g.x, az: g.z, bx: g.x, bz: g.z, add: e.ctrlKey || e.metaKey };
+        state.marquee = { ax: spot.x, az: spot.z, bx: spot.x, bz: spot.z, add: e.ctrlKey || e.metaKey };
   }
 
   function onPointerUp(e) {
@@ -1848,8 +2455,6 @@ export function createGame(canvas, ui) {
     state.tool = toggle && state.tool === kind ? null : kind;
     state.wallDraft = null;
     if (state.tool) state.selected = null;
-    if (state.tool === "wall") setHint("Click a start, or aim near a wall tip to snap.");
-    else if (state.tool) setHint("Click open grass to place. Right-click cancels.");
     renderInspect();
     syncHud();
   }
@@ -1858,6 +2463,10 @@ export function createGame(canvas, ui) {
   canvas.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointerup", onPointerUp);
   window.addEventListener("keydown", (e) => {
+    if (settingsOpen()) {
+      if (e.code === "Escape") closeSettings();
+      return;
+    }
     if (e.code === "F2") {
       admin = !admin;
       setHint(admin ? "Admin on — unlimited gold." : "Admin off.");
@@ -1870,26 +2479,42 @@ export function createGame(canvas, ui) {
       setPicked(alive, false);
       return;
     }
+    if (playing() && e.code === "KeyG") {
+      e.preventDefault();
+      if (state.tool !== "wall") {
+        setTool("wall", false);
+        state.wallMode = "gate";
+      } else {
+        state.wallMode = state.wallMode === "gate" ? "draw" : "gate";
+      }
+      state.wallDraft = null;
+      syncHud();
+      return;
+    }
     if (playing() && e.code === "KeyQ") {
       if (state.tool) {
         setTool(null, false);
-        setHint("Drag a box to select troops, then click the ground to send them.");
         return;
       }
       state.picked.clear();
       state.marquee = null;
-      setHint("Selection cleared.");
       return;
     }
-    if (playing() && /^Digit[1-8]$/.test(e.code)) {
-      setTool(HOTBAR[Number(e.code.slice(5)) - 1], false);
+    if (playing() && (/^Digit[0-9]$/.test(e.code))) {
+      e.preventDefault();
+      const n = Number(e.code.slice(5));
+      const slot = n === 0 ? 9 : n - 1;
+      if (HOTBAR[slot]) setTool(HOTBAR[slot], false);
       return;
     }
     if (e.code === "Escape") {
-      if (document.pointerLockElement) return;
+      if (document.pointerLockElement === canvas) {
+        releaseLook();
+        return;
+      }
+      if (performance.now() - unlockGuard < 250) return;
       if (state.wallDraft) {
         state.wallDraft = null;
-        setHint("Click a starting point for the wall.");
         return;
       }
       state.tool = null;
@@ -1916,7 +2541,7 @@ export function createGame(canvas, ui) {
 
   ui.btnPlay.addEventListener("click", () => {
     play();
-    canvas.requestPointerLock();
+    grabLook();
   });
   ui.btnStart.addEventListener("click", startWaves);
   ui.btnRestart.addEventListener("click", () => {
@@ -1927,8 +2552,19 @@ export function createGame(canvas, ui) {
     audio.setMuted(!audio.isMuted());
     syncHud();
   });
-  ui.buildBar.querySelectorAll("[data-build]").forEach((btn) => {
-    btn.addEventListener("click", () => setTool(btn.dataset.build));
+  ui.btnSettings?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (settingsOpen()) closeSettings();
+    else openSettings();
+  });
+  ui.btnSettingsClose?.addEventListener("click", () => closeSettings());
+  ui.settings?.addEventListener("click", (e) => {
+    if (e.target === ui.settings) closeSettings();
+  });
+  ui.keepMeter?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openKeepInspect();
   });
 
   let last = performance.now();
@@ -1949,13 +2585,14 @@ export function createGame(canvas, ui) {
         stepTroops(dt);
         stepEnemies(dt);
         sweepDead();
+        stepBoats(dt);
         if (state.keepHp <= 0 && state.phase !== "lose") lose();
         else if (state.phase === "combat") stepSpawns(dt);
         else if (state.phase === "between") stepBetween(dt);
       }
     }
     view.updateCamera(dt, blocked || shotFreeze);
-    if (!blocked && document.pointerLockElement === canvas) {
+    if (!blocked && playing()) {
       setHoverFromWorld(view.lookGround());
       if (state.marquee && state.pointer) {
         state.marquee.bx = state.pointer.x;
@@ -1990,34 +2627,39 @@ export function createGame(canvas, ui) {
     admin = true;
     play();
     if (ui.lookPrompt) ui.lookPrompt.hidden = true;
-    setHint("Hold the meadow.");
     const kc = KEEP_TILES[0][0];
     const kr = KEEP_TILES[0][1];
     const tryPlace = (kind, c, r) => {
       const p = tileCenter(c, r);
       return placeBuilding(kind, p.x, p.z);
     };
-    tryPlace("farm", kc + 4, kr);
-    tryPlace("farm", kc + 5, kr + 1);
-    tryPlace("barracks", kc - 4, kr);
-    tryPlace("workshop", kc + 4, kr + 4);
-    tryPlace("crossbow", kc - 1, kr - 4);
-    tryPlace("cannon", kc + 3, kr - 4);
-    tryPlace("mage", kc - 4, kr - 3);
-    tryPlace("spikes", kc + 1, kr - 5);
-    const wallLine = (c0, r0, c1, r1) => {
-      const a = tileCenter(c0, r0);
-      const b = tileCenter(c1, r1);
-      placeWall(a.x, a.z, b.x, b.z);
-    };
-    wallLine(kc - 3, kr + 4, kc + 6, kr + 4);
-    wallLine(kc - 5, kr - 2, kc - 5, kr + 4);
-    const hall = state.buildings.find((b) => b.kind === "barracks");
-    if (hall) {
-      trainTroop("spearman");
-      trainTroop("knight");
-      trainTroop("slinger");
-      trainTroop("raider");
+    let hall = null;
+    if (shot !== "island") {
+      tryPlace("farm", kc + 4, kr);
+      tryPlace("farm", kc + 5, kr + 1);
+      tryPlace("barracks", kc - 4, kr);
+      tryPlace("workshop", kc + 4, kr + 4);
+      tryPlace("crossbow", kc - 1, kr - 4);
+      tryPlace("cannon", kc + 3, kr - 4);
+      tryPlace("mage", kc - 4, kr - 3);
+      tryPlace("air", kc + 5, kr - 3);
+      tryPlace("spikes", kc + 1, kr - 5);
+      const wallLine = (c0, r0, c1, r1) => {
+        const a = tileCenter(c0, r0);
+        const b = tileCenter(c1, r1);
+        placeWall(a.x, a.z, b.x, b.z);
+      };
+      wallLine(kc - 3, kr + 6, kc + 6, kr + 6);
+      wallLine(kc - 5, kr - 2, kc - 5, kr + 4);
+      const mid = tileCenter(kc + 1, kr + 6);
+      placeGateAt(mid.x, mid.z);
+      hall = state.buildings.find((b) => b.kind === "barracks");
+      if (hall) {
+        trainTroop("spearman");
+        trainTroop("knight");
+        trainTroop("slinger");
+        trainTroop("raider");
+      }
     }
     const keep = keepCenter();
     const look = (dist, height, pitch, fov = 48) => {
@@ -2028,7 +2670,7 @@ export function createGame(canvas, ui) {
     if (shot === "island") {
       state.selected = null;
       renderInspect();
-      look(16, 22, 0.95, 50);
+      look(12, 360, 1.4, 58);
     } else if (shot === "build") {
       state.selected = null;
       renderInspect();
@@ -2067,6 +2709,34 @@ export function createGame(canvas, ui) {
         });
       }
       look(14, 12.5, 0.65, 48);
+    } else if (shot === "wave" || shot === "storm") {
+      state.selected = null;
+      renderInspect();
+      startWaves();
+      if (shot === "storm") beginWave(9);
+      shotFreeze = false;
+      const origin = SPAWN_TILES[0];
+      const shore = tileCenter(origin[0], origin[1]);
+      const home = keepCenter();
+      let fx = home.x - shore.x;
+      let fz = home.z - shore.z;
+      const fl = Math.hypot(fx, fz) || 1;
+      fx /= fl;
+      fz /= fl;
+      const rx = -fz;
+      const rz = fx;
+      if (shot === "storm") {
+        look(24, 32, 0.88, 52);
+      } else {
+        view.setCamera({
+          x: shore.x + fx * 16,
+          y: 7,
+          z: shore.z + fz * 16,
+          yaw: Math.atan2(fx, -fz),
+          pitch: 0.18,
+          fov: 52,
+        });
+      }
     } else {
       state.selected = null;
       renderInspect();
@@ -2085,13 +2755,16 @@ const game = createGame(document.getElementById("view"), {
   wave: document.getElementById("wave"),
   keepHp: document.getElementById("keep-hp"),
   keepFill: document.getElementById("keep-fill"),
+  keepMeter: document.getElementById("keep-meter"),
   army: document.getElementById("army"),
   armyFill: document.getElementById("army-fill"),
   btnPlay: document.getElementById("btn-play"),
   btnStart: document.getElementById("btn-start"),
   btnRestart: document.getElementById("btn-restart"),
   btnMute: document.getElementById("btn-mute"),
-  buildBar: document.getElementById("build-bar"),
+  btnSettings: document.getElementById("btn-settings"),
+  btnSettingsClose: document.getElementById("btn-settings-close"),
+  settings: document.getElementById("settings"),
   inspect: document.getElementById("inspect"),
   inspectTitle: document.getElementById("inspect-title"),
   inspectMeta: document.getElementById("inspect-meta"),
@@ -2100,18 +2773,10 @@ const game = createGame(document.getElementById("view"), {
   endTitle: document.getElementById("end-title"),
   endBody: document.getElementById("end-body"),
   crosshair: document.getElementById("crosshair"),
+  aimTool: document.getElementById("aim-tool"),
   lookPrompt: document.getElementById("look-prompt"),
+  hotbar: document.getElementById("hotbar"),
 });
-
-for (const btn of document.querySelectorAll("[data-build]")) {
-  const def = BUILDINGS[btn.dataset.build];
-  if (def) {
-    const em = btn.querySelector("em");
-    if (!em) continue;
-    if (btn.dataset.build === "farm") em.textContent = `${def.cost}g · 0/${MAX_FARMS}`;
-    else em.textContent = def.draw ? `${def.cost}g+` : `${def.cost}g`;
-  }
-}
 
 document.documentElement.dataset.gk = "ready";
 void game;

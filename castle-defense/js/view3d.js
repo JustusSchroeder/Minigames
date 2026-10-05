@@ -11,7 +11,8 @@ import {
   terrainHeight,
   tileTerrain,
   WALL_MESH_LEN,
-} from "./world.js?v=2";
+  GATE_LEN,
+} from "./world.js?v=7";
 
 const TROOP_KINDS = ["spearman", "slinger", "raider", "knight", "warden"];
 const ENEMY_KINDS = ["goblin", "runner", "archer", "brute", "ogre", "bat", "climber", "ram"];
@@ -119,12 +120,13 @@ function grassMat(map) {
 }
 
 function makeSky() {
-  const geo = new THREE.SphereGeometry(2200, 24, 16);
+  const R = 2400;
+  const geo = new THREE.SphereGeometry(R, 24, 16);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i += 1) {
-    const t = THREE.MathUtils.clamp(pos.getY(i) / 2200, -0.2, 1);
+    const t = THREE.MathUtils.clamp(pos.getY(i) / R, -0.2, 1);
     c.setHSL(0.56, 0.52, 0.68 + t * 0.12);
     colors[i * 3] = c.r;
     colors[i * 3 + 1] = c.g;
@@ -325,40 +327,136 @@ function addBanner(g, x, y, z) {
   g.add(mesh(new THREE.BoxGeometry(0.22, 0.12, 0.02), FLAG, x + 0.11, y + 0.18, z, { cast: false }));
 }
 
-function makeKeep() {
+function addKeepBanner(g, x, y, z, scale = 1) {
+  g.add(mesh(new THREE.BoxGeometry(0.045 * scale, 0.72 * scale, 0.045 * scale), 0xeee6d6, x, y, z, { cast: false }));
+  g.add(mesh(new THREE.BoxGeometry(0.3 * scale, 0.16 * scale, 0.03 * scale), FLAG, x + 0.15 * scale, y + 0.24 * scale, z, { cast: false }));
+}
+
+function addKeepTurret(g, x, z, h, r, roof, fancy) {
+  const sides = fancy ? 12 : 8;
+  const cap = fancy ? STONE_LIGHT : STONE;
+  g.add(mesh(new THREE.CylinderGeometry(r * 0.88, r * 1.06, h, sides), STONE_DARK, x, h / 2, z));
+  g.add(mesh(new THREE.CylinderGeometry(r * 1.14, r * 1.14, 0.3, sides), cap, x, h, z));
+  if (fancy) g.add(mesh(new THREE.CylinderGeometry(r * 1.2, r * 1.2, 0.1, sides), 0xc4a24a, x, h + 0.2, z));
+  g.add(mesh(new THREE.ConeGeometry(r * 1.26, roof, 8), fancy ? 0x4a3858 : SLATE, x, h + 0.22 + roof / 2, z));
+  if (fancy) addKeepBanner(g, x, h + roof + 0.42, z, Math.max(1, r * 1.4));
+}
+
+function addKeepDoor(g, zFace, scale) {
+  g.add(mesh(new THREE.BoxGeometry(1.25 * scale, 0.22 * scale, 0.9 * scale), STONE, 0, 0.24 * scale, zFace));
+  g.add(mesh(new THREE.BoxGeometry(0.82 * scale, 1.45 * scale, 0.14 * scale), DOOR, 0, 0.92 * scale, zFace - 0.1 * scale));
+  g.add(mesh(new THREE.BoxGeometry(1.02 * scale, 0.14 * scale, 0.22 * scale), 0x5c3a22, 0, 1.68 * scale, zFace - 0.02 * scale));
+  g.add(mesh(new THREE.BoxGeometry(0.1 * scale, 0.36 * scale, 0.05 * scale), 0x2a2733, 0.16 * scale, 0.95 * scale, zFace - 0.02 * scale, { cast: false }));
+}
+
+function addKeepRing(g, size, h, thick, y0, merlon) {
+  const y = y0 + h / 2;
+  const inset = size / 2 - thick / 2;
+  g.add(mesh(new THREE.BoxGeometry(size, h, thick), STONE, 0, y, inset));
+  g.add(mesh(new THREE.BoxGeometry(size, h, thick), STONE, 0, y, -inset));
+  g.add(mesh(new THREE.BoxGeometry(thick, h, size - thick * 2), STONE, inset, y, 0));
+  g.add(mesh(new THREE.BoxGeometry(thick, h, size - thick * 2), STONE, -inset, y, 0));
+  addMerlons(g, size, size, y0 + h, thick * 0.9, merlon);
+}
+
+function makeKeep(level = 0) {
   const g = new THREE.Group();
-  g.add(mesh(new THREE.BoxGeometry(3.55, 0.22, 3.55), STONE_DARK, 0, 0.11, 0));
-  g.add(mesh(new THREE.BoxGeometry(3.2, 0.28, 3.2), STONE, 0, 0.34, 0));
-  const body = mesh(new THREE.BoxGeometry(2.7, 3.35, 2.7), STONE, 0, 2.05, 0);
-  body.userData.keepBody = true;
-  g.add(body);
-  g.add(mesh(new THREE.BoxGeometry(2.95, 0.22, 2.95), STONE_DARK, 0, 3.78, 0));
-  g.add(mesh(new THREE.BoxGeometry(2.15, 0.08, 2.15), STONE_LIGHT, 0, 3.92, 0, { cast: false }));
-  addMerlons(g, 2.95, 2.95, 3.88, 0.2, 0.34);
-  addSlits(g, 1.37, 1.15, 4, 3, 1.55);
-  addSlits(g, -1.37, 1.35, 3, 2, 1.1);
-  g.add(mesh(new THREE.BoxGeometry(0.12, 3.1, 0.42), STONE_DARK, 1.4, 1.7, 1.4));
-  g.add(mesh(new THREE.BoxGeometry(0.12, 3.1, 0.42), STONE_DARK, -1.4, 1.7, 1.4));
-  g.add(mesh(new THREE.BoxGeometry(0.42, 3.1, 0.12), STONE_DARK, -1.4, 1.7, -1.4));
-  g.add(mesh(new THREE.BoxGeometry(1.15, 0.16, 0.7), STONE, 0, 0.22, 1.85));
-  g.add(mesh(new THREE.BoxGeometry(0.95, 0.14, 0.42), STONE_LIGHT, 0, 0.36, 1.68));
-  g.add(mesh(new THREE.BoxGeometry(0.78, 0.28, 0.12), 0x5c3a22, 0, 0.52, 1.48));
-  g.add(mesh(new THREE.BoxGeometry(0.55, 1.05, 0.1), DOOR, 0, 0.72, 1.38));
-  g.add(mesh(new THREE.BoxGeometry(0.08, 0.32, 0.04), 0x2a2733, 0.14, 0.78, 1.44, { cast: false }));
-  g.add(mesh(new THREE.BoxGeometry(0.72, 0.08, 0.18), 0x5c3a22, 0, 1.28, 1.46));
-  g.add(mesh(new THREE.BoxGeometry(1.35, 0.08, 0.42), 0x8a5c38, 0, 2.55, 1.52));
-  g.add(mesh(new THREE.BoxGeometry(0.07, 0.42, 0.07), 0x5c3a22, -0.58, 2.78, 1.62));
-  g.add(mesh(new THREE.BoxGeometry(0.07, 0.42, 0.07), 0x5c3a22, 0.58, 2.78, 1.62));
-  g.add(mesh(new THREE.BoxGeometry(1.3, 0.08, 0.08), 0x5c3a22, 0, 3.0, 1.62));
-  g.add(mesh(new THREE.BoxGeometry(0.2, 0.26, 0.05), DOOR, -0.7, 2.15, 1.38, { cast: false }));
-  g.add(mesh(new THREE.BoxGeometry(0.2, 0.26, 0.05), DOOR, 0.7, 2.15, 1.38, { cast: false }));
-  const turret = mesh(new THREE.CylinderGeometry(0.42, 0.48, 2.4, 10), STONE_DARK, 1.55, 2.4, -1.55);
-  g.add(turret);
-  g.add(mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.16, 10), STONE_LIGHT, 1.55, 3.62, -1.55));
-  g.add(mesh(new THREE.ConeGeometry(0.58, 0.95, 8), SLATE, 1.55, 4.18, -1.55));
-  addBanner(g, 1.55, 4.72, -1.55);
-  g.add(mesh(new THREE.CylinderGeometry(0.32, 0.36, 1.7, 8), STONE, -1.5, 1.55, 1.5));
-  g.add(mesh(new THREE.ConeGeometry(0.4, 0.55, 7), SLATE, -1.5, 2.62, 1.5));
+  g.userData.keepRoot = true;
+  const lv = Math.max(0, Math.min(3, level || 0));
+  const gold = 0xd4b44a;
+  const brass = 0xc4a24a;
+
+  if (lv === 0) {
+    g.add(mesh(new THREE.BoxGeometry(6.1, 0.32, 6.1), STONE_DARK, 0, 0.16, 0));
+    g.add(mesh(new THREE.BoxGeometry(5.6, 0.38, 5.6), STONE, 0, 0.48, 0));
+    const body = mesh(new THREE.BoxGeometry(4.8, 6.2, 4.8), STONE, 0, 3.7, 0);
+    body.userData.keepBody = true;
+    g.add(body);
+    g.add(mesh(new THREE.BoxGeometry(5.15, 0.28, 5.15), STONE_DARK, 0, 6.9, 0));
+    addMerlons(g, 5.15, 5.15, 7.04, 0.26, 0.48);
+    addSlits(g, 2.42, 2.1, 4, 3, 2.4);
+    addSlits(g, -2.42, 2.4, 3, 3, 2.2);
+    addKeepDoor(g, 2.55, 1.15);
+    addKeepTurret(g, 2.55, -2.55, 8.4, 0.72, 1.35, false);
+    addKeepTurret(g, -2.5, 2.5, 5.6, 0.5, 0.85, false);
+    addKeepBanner(g, 0, 7.7, 2.4, 1.15);
+    return g;
+  }
+
+  if (lv === 1) {
+    g.add(mesh(new THREE.BoxGeometry(9.6, 0.38, 9.6), STONE_DARK, 0, 0.19, 0));
+    addKeepRing(g, 9.4, 4.4, 0.7, 0.38, 0.55);
+    const body = mesh(new THREE.BoxGeometry(5.6, 9.2, 5.6), STONE, 0, 5.1, 0);
+    body.userData.keepBody = true;
+    g.add(body);
+    g.add(mesh(new THREE.BoxGeometry(6.0, 0.32, 6.0), STONE_LIGHT, 0, 9.8, 0));
+    addMerlons(g, 6.0, 6.0, 9.96, 0.28, 0.52);
+    addSlits(g, 2.82, 2.8, 5, 3, 2.8);
+    addSlits(g, -2.82, 3.2, 4, 3, 2.5);
+    addKeepDoor(g, 4.85, 1.35);
+    g.add(mesh(new THREE.BoxGeometry(2.4, 3.2, 1.6), STONE_DARK, 0, 1.9, 4.1));
+    addKeepTurret(g, 4.15, 4.15, 12.2, 0.95, 1.7, false);
+    addKeepTurret(g, -4.15, 4.15, 12.2, 0.95, 1.7, false);
+    addKeepTurret(g, 4.15, -4.15, 12.2, 0.95, 1.7, false);
+    addKeepTurret(g, -4.15, -4.15, 12.2, 0.95, 1.7, false);
+    addKeepBanner(g, 0, 10.7, 2.9, 1.3);
+    addKeepBanner(g, 4.15, 14.3, 4.15, 1.2);
+    return g;
+  }
+
+  if (lv === 2) {
+    g.add(mesh(new THREE.BoxGeometry(13.2, 0.42, 13.2), STONE_DARK, 0, 0.21, 0));
+    addKeepRing(g, 13.0, 5.4, 0.85, 0.42, 0.62);
+    addKeepRing(g, 8.4, 3.6, 0.55, 0.42, 0.42);
+    const body = mesh(new THREE.BoxGeometry(6.6, 12.8, 6.6), STONE_LIGHT, 0, 7.1, 0);
+    body.userData.keepBody = true;
+    g.add(body);
+    g.add(mesh(new THREE.BoxGeometry(7.1, 0.36, 7.1), STONE, 0, 13.6, 0));
+    addMerlons(g, 7.1, 7.1, 13.78, 0.32, 0.58);
+    addSlits(g, 3.32, 3.4, 6, 4, 3.6);
+    addSlits(g, -3.32, 3.8, 5, 3, 3.2);
+    g.add(mesh(new THREE.BoxGeometry(7.0, 0.12, 0.12), brass, 0, 8.4, 3.34));
+    addKeepDoor(g, 6.65, 1.55);
+    g.add(mesh(new THREE.BoxGeometry(3.2, 4.4, 2.2), STONE, 0, 2.5, 5.5));
+    g.add(mesh(new THREE.BoxGeometry(1.1, 2.2, 0.16), DOOR, 0, 1.4, 6.55));
+    addKeepTurret(g, 5.7, 5.7, 16.5, 1.15, 2.2, true);
+    addKeepTurret(g, -5.7, 5.7, 16.5, 1.15, 2.2, true);
+    addKeepTurret(g, 5.7, -5.7, 16.5, 1.15, 2.2, true);
+    addKeepTurret(g, -5.7, -5.7, 16.5, 1.15, 2.2, true);
+    addKeepTurret(g, 0, -5.9, 11.2, 0.72, 1.4, false);
+    addKeepBanner(g, 0, 14.7, 3.4, 1.45);
+    return g;
+  }
+
+  g.add(mesh(new THREE.BoxGeometry(17.2, 0.5, 17.2), STONE_DARK, 0, 0.25, 0));
+  addKeepRing(g, 16.8, 6.4, 1.05, 0.5, 0.72);
+  addKeepRing(g, 11.4, 4.6, 0.7, 0.5, 0.52);
+  const hall = mesh(new THREE.BoxGeometry(8.4, 10.4, 8.4), STONE, 0, 6.7, 0);
+  hall.userData.keepBody = true;
+  g.add(hall);
+  const spire = mesh(new THREE.BoxGeometry(4.6, 16.5, 4.6), STONE_LIGHT, 0, 16.4, 0);
+  spire.userData.keepBody = true;
+  g.add(spire);
+  g.add(mesh(new THREE.BoxGeometry(5.2, 0.4, 5.2), gold, 0, 24.8, 0));
+  addMerlons(g, 5.2, 5.2, 25.0, 0.34, 0.62);
+  g.add(mesh(new THREE.ConeGeometry(1.35, 3.4, 8), 0x4a3858, 0, 27.1, 0));
+  addKeepBanner(g, 0, 29.0, 0, 1.7);
+  addSlits(g, 4.22, 3.2, 5, 4, 4.2);
+  addSlits(g, 2.32, 10.4, 6, 3, 2.4);
+  g.add(mesh(new THREE.BoxGeometry(8.8, 0.14, 0.14), gold, 0, 9.6, 4.24));
+  g.add(mesh(new THREE.BoxGeometry(4.9, 0.12, 0.12), brass, 0, 18.6, 2.34));
+  addKeepDoor(g, 8.55, 1.7);
+  g.add(mesh(new THREE.BoxGeometry(4.0, 5.4, 2.6), STONE_DARK, 0, 3.0, 7.1));
+  g.add(mesh(new THREE.BoxGeometry(1.4, 2.6, 0.2), DOOR, 0, 1.55, 8.35));
+  g.add(mesh(new THREE.BoxGeometry(2.2, 1.1, 0.7), gold, 0, 4.5, 8.2));
+  addKeepTurret(g, 7.4, 7.4, 21.5, 1.45, 2.8, true);
+  addKeepTurret(g, -7.4, 7.4, 21.5, 1.45, 2.8, true);
+  addKeepTurret(g, 7.4, -7.4, 21.5, 1.45, 2.8, true);
+  addKeepTurret(g, -7.4, -7.4, 21.5, 1.45, 2.8, true);
+  addKeepTurret(g, 0, 7.6, 14.8, 0.85, 1.7, true);
+  addKeepTurret(g, 0, -7.6, 14.8, 0.85, 1.7, true);
+  addKeepBanner(g, 7.4, 24.8, 7.4, 1.5);
+  addKeepBanner(g, -7.4, 24.8, -7.4, 1.5);
   return g;
 }
 
@@ -524,9 +622,177 @@ function makeWallGeometry(level = 0) {
   return mergeGeos(parts);
 }
 
+function makeGateGeometry(level = 0) {
+  const parts = [];
+  const add = (w, ht, d, x, y, z, hex, rot) => {
+    parts.push(voxelBox(w, ht, d, x, y, z, hex, rot));
+  };
+  const lv = Math.max(0, Math.min(3, level || 0));
+  const len = GATE_LEN;
+  const end = len / 2;
+  const crenel = (x, z, w, y, d, hex) => {
+    add(w * 0.42, 0.34, d, x - w * 0.28, y + 0.17, z, hex);
+    add(w * 0.42, 0.34, d, x + w * 0.28, y + 0.17, z, hex);
+  };
+
+  if (lv >= 3) {
+    const towerW = 1.22;
+    const towerD = 1.72;
+    const towerH = 3.55;
+    const bodyH = 2.55;
+    for (const side of [-1, 1]) {
+      const tx = side * (end - towerW * 0.48);
+      add(towerW, towerH, towerD, tx, towerH / 2, 0, STONE);
+      add(towerW + 0.16, 0.2, towerD + 0.16, tx, towerH + 0.08, 0, STONE_DARK);
+      add(towerW + 0.08, 0.12, towerD + 0.08, tx, towerH + 0.22, 0, STONE_LIGHT);
+      for (const fz of [-1, 1]) {
+        crenel(tx, fz * (towerD * 0.48), towerW * 0.9, towerH + 0.22, 0.22, STONE_LIGHT);
+      }
+      crenel(tx, 0, 0.28, towerH + 0.22, towerD * 0.92, STONE);
+      add(0.22, 0.7, 0.22, tx, towerH + 0.55, towerD * 0.42, STONE_DARK);
+      add(0.08, 0.85, 0.08, tx, towerH + 1.05, towerD * 0.42, 0xeee6d6);
+      add(0.28, 0.16, 0.04, tx + side * 0.12, towerH + 1.42, towerD * 0.42, FLAG);
+      add(0.16, 0.55, 0.08, tx, 1.55, towerD * 0.52, DOOR);
+      add(0.12, 0.22, 0.04, tx, 2.35, towerD * 0.54, DOOR);
+      add(0.2, 0.1, 0.2, tx, towerH + 0.32, 0, GOLD);
+    }
+    add(len * 0.52, bodyH, 1.28, 0, bodyH / 2, 0, STONE);
+    add(len * 0.56, 0.22, 1.42, 0, bodyH + 0.08, 0, STONE_DARK);
+    add(len * 0.5, 0.14, 1.2, 0, bodyH + 0.24, 0, STONE_LIGHT);
+    crenel(0, 0.58, 1.6, bodyH + 0.24, 0.2, STONE_LIGHT);
+    crenel(0, -0.58, 1.6, bodyH + 0.24, 0.2, STONE_LIGHT);
+    add(1.7, 0.18, 0.16, 0, 2.05, 0.7, STONE_DARK);
+    add(1.55, 0.12, 0.5, 0, 0.08, 0, STONE_DARK);
+    add(0.16, 1.85, 0.16, -0.82, 1.05, 0.52, STONE_DARK);
+    add(0.16, 1.85, 0.16, 0.82, 1.05, 0.52, STONE_DARK);
+    add(1.72, 0.22, 0.22, 0, 1.95, 0.52, STONE);
+    add(0.08, 1.55, 0.06, -0.55, 0.9, 0.18, IRON);
+    add(0.08, 1.55, 0.06, -0.18, 0.9, 0.18, IRON);
+    add(0.08, 1.55, 0.06, 0.18, 0.9, 0.18, IRON);
+    add(0.08, 1.55, 0.06, 0.55, 0.9, 0.18, IRON);
+    add(1.5, 0.08, 0.08, 0, 1.7, 0.18, IRON);
+    add(0.68, 1.48, 0.1, -0.36, 0.82, 0.08, 0x4a2e1c);
+    add(0.68, 1.48, 0.1, 0.36, 0.82, 0.08, 0x4a2e1c);
+    add(0.08, 1.48, 0.12, 0, 0.82, 0.12, IRON);
+    add(0.1, 0.14, 0.08, 0.08, 0.95, 0.16, GOLD);
+    add(0.22, 0.1, 0.22, 0, bodyH + 0.38, 0, GOLD);
+    return mergeGeos(parts);
+  }
+
+  if (lv >= 2) {
+    const pierW = 0.95;
+    const pierH = 2.62;
+    const pierD = 1.18;
+    const openW = 1.36;
+    const doorH = 1.72;
+    for (const side of [-1, 1]) {
+      const x = side * (end - pierW * 0.5);
+      add(pierW, pierH, pierD, x, pierH / 2, 0, STONE);
+      add(pierW + 0.1, 0.16, pierD + 0.1, x, pierH + 0.06, 0, STONE_DARK);
+      crenel(x, 0.48, pierW, pierH + 0.06, 0.2, STONE_LIGHT);
+      crenel(x, -0.48, pierW, pierH + 0.06, 0.2, STONE_LIGHT);
+      add(0.14, 0.42, 0.08, x, 1.35, pierD * 0.52, DOOR);
+      add(0.58, 2.08, 1.02, side * 0.98, 1.04, 0, STONE);
+    }
+    add(openW + 0.6, 0.34, 1.1, 0, doorH + 0.3, 0, STONE);
+    add(0.52, 0.42, 0.72, -0.46, doorH + 0.58, 0, STONE);
+    add(0.52, 0.42, 0.72, 0.46, doorH + 0.58, 0, STONE);
+    add(0.72, 0.32, 0.78, 0, doorH + 0.72, 0, STONE_LIGHT);
+    add(openW + 0.2, 0.12, 0.52, 0, 0.07, 0, STONE_DARK);
+    const leaf = openW / 2 - 0.02;
+    add(leaf, doorH, 0.16, -leaf / 2 - 0.015, doorH / 2 + 0.08, 0.04, 0x4a2e1c);
+    add(leaf, doorH, 0.16, leaf / 2 + 0.015, doorH / 2 + 0.08, 0.04, 0x3a2414);
+    add(0.08, doorH, 0.18, 0, doorH / 2 + 0.08, 0.1, IRON);
+    add(0.06, doorH * 0.92, 0.05, -0.42, doorH * 0.5, 0.16, IRON);
+    add(0.06, doorH * 0.92, 0.05, -0.14, doorH * 0.5, 0.16, IRON);
+    add(0.06, doorH * 0.92, 0.05, 0.14, doorH * 0.5, 0.16, IRON);
+    add(0.06, doorH * 0.92, 0.05, 0.42, doorH * 0.5, 0.16, IRON);
+    add(openW * 0.9, 0.07, 0.07, 0, doorH * 0.92, 0.16, IRON);
+    add(0.16, 0.2, 0.16, 0, pierH + 0.12, 0, IRON);
+    return mergeGeos(parts);
+  }
+
+  if (lv >= 1) {
+    const postH = 2.22;
+    const openW = 1.28;
+    const doorH = 1.78;
+    for (const side of [-1, 1]) {
+      add(0.92, WALL_VIS_H + 0.08, 0.62, side * (end - 0.46), (WALL_VIS_H + 0.08) / 2, 0, WOOD);
+      add(0.92, 0.14, 0.74, side * (end - 0.46), WALL_VIS_H + 0.12, 0, WOOD_DARK);
+      add(0.24, 0.34, 0.18, side * (end - 0.18), WALL_VIS_H + 0.36, 0.24, STONE_LIGHT);
+      add(0.24, 0.34, 0.18, side * (end - 0.18), WALL_VIS_H + 0.36, -0.24, STONE_LIGHT);
+      const px = side * (openW / 2 + 0.22);
+      add(0.42, postH, 0.64, px, postH / 2, 0, WOOD_DARK);
+      add(0.48, 0.1, 0.7, px, 0.55, 0, IRON);
+      add(0.48, 0.1, 0.7, px, 1.4, 0, IRON);
+      add(0.16, 0.28, 0.16, px, postH + 0.1, 0, IRON);
+      add(0.5, WALL_VIS_H, 0.58, side * 1.2, WALL_VIS_H / 2, 0, WOOD);
+    }
+    add(openW + 0.72, 0.3, 0.66, 0, doorH + 0.22, 0, WOOD);
+    add(openW + 0.88, 0.12, 1.0, 0, doorH + 0.4, 0, WOOD_DARK);
+    add(1.2, 0.1, 1.08, -0.7, doorH + 0.5, 0, WOOD, { rz: 0.42 });
+    add(1.2, 0.1, 1.08, 0.7, doorH + 0.5, 0, WOOD, { rz: -0.42 });
+    add(0.22, 0.18, 1.08, 0, doorH + 0.7, 0, WOOD_DARK);
+    add(openW + 0.12, 0.1, 0.5, 0, 0.07, 0, STONE_DARK);
+    const leaf = openW / 2 - 0.02;
+    add(leaf, doorH, 0.16, -leaf / 2 - 0.015, doorH / 2 + 0.08, 0.05, 0x5c3a22);
+    add(leaf, doorH, 0.16, leaf / 2 + 0.015, doorH / 2 + 0.08, 0.05, 0x4a2e1c);
+    add(0.08, doorH, 0.18, 0, doorH / 2 + 0.08, 0.1, IRON);
+    add(0.32, 0.06, 0.04, -0.32, 0.55, 0.14, IRON);
+    add(0.32, 0.06, 0.04, -0.32, 1.2, 0.14, IRON);
+    add(0.32, 0.06, 0.04, 0.32, 0.55, 0.14, IRON);
+    add(0.32, 0.06, 0.04, 0.32, 1.2, 0.14, IRON);
+    add(0.1, 0.12, 0.08, 0.08, 0.95, 0.16, BRASS);
+    return mergeGeos(parts);
+  }
+
+  const postH = 1.95;
+  for (const side of [-1, 1]) {
+    const x = side * 1.42;
+    add(0.4, postH, 0.62, x, postH / 2, 0, WOOD_DARK);
+    add(0.46, 0.12, 0.68, x, 0.42, 0, WOOD);
+    add(0.18, 0.24, 0.18, x, postH + 0.08, 0, WOOD);
+    add(0.78, WALL_VIS_H, 0.58, side * (end - 0.38), WALL_VIS_H / 2, 0, WOOD);
+    add(0.78, 0.14, 0.7, side * (end - 0.38), WALL_VIS_H + 0.05, 0, WOOD_DARK);
+    add(0.22, 0.32, 0.18, side * (end - 0.14), WALL_VIS_H + 0.28, 0.22, STONE_LIGHT);
+    add(0.22, 0.32, 0.18, side * (end - 0.14), WALL_VIS_H + 0.28, -0.22, STONE_LIGHT);
+  }
+  add(2.35, 0.26, 0.55, 0, 1.88, 0, WOOD);
+  add(2.2, 0.1, 0.7, 0, 2.04, 0, WOOD_DARK);
+  add(1.55, 0.08, 0.42, 0, 0.06, 0, STONE_DARK);
+  add(0.64, 1.42, 0.08, -0.36, 0.78, 0.06, 0x6a4428, { ry: 0.18 });
+  add(0.64, 1.42, 0.08, 0.36, 0.78, 0.06, 0x6a4428, { ry: -0.18 });
+  add(0.06, 1.42, 0.08, 0, 0.78, 0.1, WOOD_DARK);
+  add(0.22, 0.05, 0.04, -0.28, 0.7, 0.12, IRON);
+  add(0.08, 0.1, 0.06, 0.06, 0.88, 0.14, IRON);
+  add(0.18, 0.55, 0.18, -1.05, 1.15, 0.22, WOOD_DARK);
+  add(0.18, 0.55, 0.18, 1.05, 1.15, 0.22, WOOD_DARK);
+  return mergeGeos(parts);
+}
+
+function makeBoat() {
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.BoxGeometry(1.55, 0.32, 4.2), 0x6a4024, 0, 0.18, 0));
+  g.add(mesh(new THREE.BoxGeometry(1.2, 0.22, 1.1), 0x4a2c18, 0, 0.28, 2.0));
+  g.add(mesh(new THREE.BoxGeometry(0.7, 0.28, 0.85), 0x7a4a28, 0, 0.32, 2.5));
+  g.add(mesh(new THREE.BoxGeometry(0.1, 0.38, 4.0), 0x3a2414, 0.7, 0.38, 0));
+  g.add(mesh(new THREE.BoxGeometry(0.1, 0.38, 4.0), 0x3a2414, -0.7, 0.38, 0));
+  g.add(mesh(new THREE.BoxGeometry(1.4, 0.1, 0.12), 0x3a2414, 0, 0.38, -2.0));
+  g.add(mesh(new THREE.BoxGeometry(1.2, 0.06, 0.4), WOOD, 0, 0.3, 0.4));
+  g.add(mesh(new THREE.BoxGeometry(1.2, 0.06, 0.4), WOOD, 0, 0.3, -0.5));
+  g.add(mesh(new THREE.BoxGeometry(1.2, 0.06, 0.4), WOOD, 0, 0.3, -1.4));
+  g.add(mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.8, 6), 0x3a2414, 0, 1.1, -0.2));
+  g.add(mesh(new THREE.BoxGeometry(0.05, 0.95, 0.5), 0xc45a28, 0.28, 1.45, -0.2, { cast: false }));
+  g.add(mesh(new THREE.BoxGeometry(0.28, 0.1, 0.28), IRON, 0, 0.24, 2.2));
+  return g;
+}
+
 function makeBuilding(kind, level = 0) {
   const g = new THREE.Group();
   const lv = Math.max(0, Math.min(3, level || 0));
+  if (kind === "keep") {
+    return makeKeep(lv);
+  }
   if (kind === "wall") {
     const wall = new THREE.Mesh(
       makeWallGeometry(lv),
@@ -535,6 +801,14 @@ function makeBuilding(kind, level = 0) {
     wall.castShadow = true;
     wall.receiveShadow = true;
     g.add(wall);
+  } else if (kind === "gate") {
+    const gate = new THREE.Mesh(
+      makeGateGeometry(lv),
+      new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })
+    );
+    gate.castShadow = true;
+    gate.receiveShadow = true;
+    g.add(gate);
   } else if (kind === "crossbow") {
     addRoundEmplacement(g, 0.72 + lv * 0.04);
     addCrate(g, 0.58, 0.24, -0.48, 0.16);
@@ -629,6 +903,36 @@ function makeBuilding(kind, level = 0) {
     }
     aim.add(mesh(new THREE.BoxGeometry(0.06, 0.08, 0.14), BRASS, 0, 0.38, -0.12));
     aim.add(mesh(new THREE.BoxGeometry(0.22, 0.12, 0.08), WOOD_DARK, 0, 0.22, -0.42));
+    g.add(aim);
+    g.userData.aim = aim;
+  } else if (kind === "air") {
+    addRoundEmplacement(g, 0.74 + lv * 0.04);
+    g.add(mesh(new THREE.CylinderGeometry(0.62, 0.68, 0.16, 16), STONE_DARK, 0, 0.3, 0));
+    g.add(mesh(new THREE.BoxGeometry(0.22, 0.18, 0.22), IRON, 0.58, 0.28, -0.5));
+    g.add(mesh(new THREE.BoxGeometry(0.18, 0.14, 0.18), IRON_LIGHT, -0.56, 0.26, -0.48));
+    if (lv >= 1) g.add(mesh(new THREE.TorusGeometry(0.7, 0.035, 8, 16), BRASS, 0, 0.34, 0, { rx: Math.PI / 2 }));
+    if (lv >= 2) {
+      g.add(mesh(new THREE.BoxGeometry(0.1, 0.48, 0.1), IRON, 0.68, 0.52, 0.62));
+      g.add(mesh(new THREE.BoxGeometry(0.1, 0.48, 0.1), IRON, -0.68, 0.52, 0.62));
+    }
+    if (lv >= 3) addBanner(g, 0.72, 0.92, -0.52);
+    const aim = addAim();
+    aim.position.set(0, 0.38, 0);
+    aim.add(mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.1, 16), IRON, 0, 0.06, 0));
+    aim.add(mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.12, 10), IRON_LIGHT, 0, 0.16, 0));
+    const tilt = 0.72;
+    for (const x of [-0.16, 0.16]) {
+      const tube = mesh(new THREE.CylinderGeometry(0.055, 0.07, 0.95 + lv * 0.08, 8), lv >= 3 ? 0x3a3e44 : IRON, x, 0.38, 0.18);
+      tube.rotation.x = tilt;
+      aim.add(tube);
+      const lip = mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.1, 8), BRASS, x, 0.62, 0.58);
+      lip.rotation.x = tilt;
+      aim.add(lip);
+    }
+    aim.add(mesh(new THREE.BoxGeometry(0.42, 0.12, 0.28), WOOD_DARK, 0, 0.22, -0.08));
+    aim.add(mesh(new THREE.BoxGeometry(0.08, 0.16, 0.18), BRASS, 0, 0.32, -0.22));
+    const dish = mesh(new THREE.CylinderGeometry(0.22, 0.08, 0.08, 12), IRON_LIGHT, 0, 0.52, -0.12, { rx: 0.4 });
+    aim.add(dish);
     g.add(aim);
     g.userData.aim = aim;
   } else if (kind === "farm") {
@@ -880,7 +1184,7 @@ function addTroopTier(add, kind, level, p, dims) {
   const plate = level >= 3 ? ELITE : level >= 2 ? PLATE : PLATE_DARK;
   const trim = level >= 3 ? GOLD : p.accent;
   const glow = level >= 3 ? CRYSTAL : p.steel;
-  const rightX = kind === "slinger" ? armX : armX + 0.6;
+  const rightX = armX;
 
   add("body", head + 1.5, 2.2, head + 1.3, 0, 24 + head - 0.55, 0.28, plate);
   add("leftArm", armW + 1.5, 3.5, 5.4, -armX, 22.3, 0.2, plate);
@@ -902,36 +1206,36 @@ function addTroopTier(add, kind, level, p, dims) {
 
   if (kind === "spearman") {
     add("leftArm", 5.4, 7.4, 1.4, -armX, 16.4, 2.1, plate);
-    if (level >= 2) add("rightArm", 1.5, 26, 1.5, rightX, 51, 0, p.steel);
-    if (level >= 3) add("rightArm", 2.8, 2.8, 2.8, rightX, 64, 0, glow);
+    if (level >= 2) add("rightArm", 1.8, 1.8, 24, rightX, 11, 13, p.steel);
+    if (level >= 3) add("rightArm", 3.2, 3.2, 3.2, rightX, 11, 25, glow);
   } else if (kind === "slinger") {
     add("body", 3.4, 4, 2.6, armX, 16.4, -1.6, p.wood);
     if (level >= 2) add("leftArm", 1.4, 12, 1.4, -armX - 0.5, 16.5, 4.2, trim, { rz: 0.4 });
     if (level >= 3) add("rightArm", 2.2, 2.2, 2.2, armX, 14.4, 5.2, glow);
   } else if (kind === "raider") {
-    add("rightArm", 2.4, 6.2, 1.4, rightX, 43.2, 0, plate);
+    add("rightArm", 2.6, 2.2, 2.2, rightX, 11, 10.4, plate);
     add("leftArm", 1.8, 4.2, 1.8, -armX, 8.4, 1.4, plate);
-    if (level >= 2) add("rightArm", 2, 8, 1.2, rightX, 48, 0, p.steel);
+    if (level >= 2) add("rightArm", 2.2, 1.6, 10, rightX, 11, 6, p.steel);
     if (level >= 3) {
-      add("rightArm", 2.2, 2.2, 2.2, rightX, 54, 0, 0xff8a40);
+      add("rightArm", 2.4, 2.4, 2.4, rightX, 11, 12.4, 0xff8a40);
       add("body", 3, 2.2, 1, 0, 23.2, bodyD * 0.5 + 1.5, 0xc45a28);
     }
   } else if (kind === "knight") {
     add("body", 6.6, 4.6, 2.6, 0, 23.8, bodyD * 0.5 + 0.9, plate);
     add("leftArm", armW + 1.4, 6.4, 5.6, -armX, 21.4, 0, plate);
-    if (level >= 2) add("rightArm", 1.5, 20, 1.5, rightX, 48, 0, p.steel);
+    if (level >= 2) add("rightArm", 1.8, 1.8, 18, rightX, 11, 10, p.steel);
     if (level >= 3) {
-      add("rightArm", 2.6, 2.6, 2.6, rightX, 58, 0, GOLD);
+      add("rightArm", 2.8, 2.8, 2.8, rightX, 11, 19, GOLD);
       add("body", 3.2, 1.6, 3.2, 0, 24 + head + 1.1, 0, GOLD);
     }
   } else if (kind === "warden") {
-    add("rightArm", 3.8, 3.8, 3.8, rightX, 60.4, 0, trim);
+    add("rightArm", 4, 4, 4, rightX, 11, 20.4, trim);
     if (level >= 2) {
       add("body", head + 2.2, 4.2, head + 1.8, 0, 24 + head - 0.6, 0.4, p.shirt);
-      add("rightArm", 2.2, 2.2, 2.2, rightX + 2.4, 56, 1.4, MAGIC);
+      add("rightArm", 2.4, 2.4, 2.4, rightX, 13.4, 18, MAGIC);
     }
     if (level >= 3) {
-      add("rightArm", 4.2, 4.2, 4.2, rightX, 62, 0, glow);
+      add("rightArm", 4.4, 4.4, 4.4, rightX, 11, 22, glow);
       add("body", 2, 2, 2, -2.4, 24 + head + 1.2, 0.6, MAGIC);
       add("body", 2, 2, 2, 2.4, 24 + head + 1.2, 0.6, MAGIC);
     }
@@ -1131,8 +1435,8 @@ function makeUnitGeometry(kind, level = 0) {
       add("rightArm", armW, 10, 4, armX, 20, 2, p.skin);
       add("rightArm", armW, 4, 4, armX, 14, 4, p.skin);
     } else {
-      add("rightArm", armW, 12, 4, armX + 0.6, 28, 0, p.skin);
-      add("rightArm", armW, 4, 4, armX + 0.6, 36, 0, p.skin);
+      add("rightArm", armW, 12, 4, armX, 18, 0, p.skin);
+      add("rightArm", armW, 4, 4, armX, 10, 0, p.skin);
     }
   }
 
@@ -1143,8 +1447,9 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 1.6, 1.1, 0.5, 1.7, 27.6, head * 0.5 + 0.4, p.dark);
     add("body", head + 0.8, 2.4, head + 0.6, 0, 24 + head - 0.4, 0.2, p.accent);
     add("leftArm", armW + 0.6, 5, 4.6, -armX, 21, 0, p.shirt);
-    add("rightArm", 1.1, 22, 1.1, armX + 0.6, 49, 0, p.steel);
-    add("rightArm", 2.6, 1.1, 1.1, armX + 0.6, 38.2, 0, p.wood);
+    add("rightArm", 1.4, 1.4, 20, armX, 11, 11, p.steel);
+    add("rightArm", 2.6, 2.2, 2.2, armX, 11, 2.2, p.wood);
+    add("rightArm", 2.4, 2.4, 3.4, armX, 11, 21.4, p.steel);
   } else if (kind === "slinger") {
     add("body", 1.3, 1.3, 0.5, -1.6, 27.2, head * 0.5, p.dark);
     add("body", 1.3, 1.3, 0.5, 1.6, 27.2, head * 0.5, p.dark);
@@ -1156,7 +1461,8 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 1.6, 1.2, 0.5, -1.5, 27.4, head * 0.5, p.dark);
     add("body", 1.6, 1.2, 0.5, 1.5, 27.4, head * 0.5, p.dark);
     add("body", head + 0.4, 2.2, head + 0.2, 0, 24.8, 0.3, p.accent);
-    add("rightArm", 2.2, 5, 1.2, armX + 0.6, 42, 0, p.steel);
+    add("rightArm", 1.6, 1.6, 8, armX, 11, 5.2, p.steel);
+    add("rightArm", 5.2, 4.2, 2.2, armX, 11, 10.2, p.steel);
     add("leftArm", 1.4, 3.2, 1.4, -armX, 8.5, 1.2, p.steel);
   } else if (kind === "knight") {
     add("body", head + 1.2, 3.2, head + 1.2, 0, 24.2, 0.3, p.accent);
@@ -1167,17 +1473,17 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 6.2, 4.2, 2.2, 0, 23.6, bodyD * 0.5 + 0.7, p.accent);
     add("body", 3.6, 4, 1.4, 0, 20.2, bodyD * 0.5 + 1, p.accent);
     add("leftArm", armW + 1, 6, 5.2, -armX, 21.2, 0, p.head);
-    add("rightArm", 1.2, 18, 1.2, armX + 0.6, 47, 0, p.steel);
-    add("rightArm", 3.2, 1.2, 1.2, armX + 0.6, 38.4, 0, p.wood);
-    add("rightArm", 1, 2, 1, armX + 0.6, 37.2, 0, p.wood);
+    add("rightArm", 1.5, 1.5, 15, armX, 11, 8.4, p.steel);
+    add("rightArm", 4.2, 1.5, 1.5, armX, 11, 2.2, p.wood);
+    add("rightArm", 1.4, 1.4, 2.2, armX, 11, 0.8, p.wood);
   } else if (kind === "warden") {
     add("body", 1.6, 1.1, 0.5, -1.7, 27.6, head * 0.5 + 0.4, p.dark);
     add("body", 1.6, 1.1, 0.5, 1.7, 27.6, head * 0.5 + 0.4, p.dark);
     add("body", head + 1.8, 3.6, head + 1.4, 0, 24 + head - 0.8, 0.3, p.accent);
     add("body", head + 0.8, 7, 3.2, 0, 24 + head * 0.2, -2.2, p.shirt);
     add("body", bodyW + 1.4, 14, bodyD + 1.2, 0, 17, 0.4, p.shirt);
-    add("rightArm", 1.3, 22, 1.3, armX + 0.6, 48, 0, p.wood);
-    add("rightArm", 3.4, 3.4, 3.4, armX + 0.6, 60, 0, p.accent);
+    add("rightArm", 1.5, 1.5, 18, armX, 11, 10, p.wood);
+    add("rightArm", 3.8, 3.8, 3.8, armX, 11, 20, p.accent);
   } else if (kind === "goblin") {
     add("body", 2.4, 4, 1.2, -head * 0.55, 28.5, 0, p.head);
     add("body", 2.4, 4, 1.2, head * 0.55, 28.5, 0, p.head);
@@ -1185,8 +1491,8 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 1.2, 1.2, 0.5, 1.6, 27.2, head * 0.5, p.dark);
     add("body", 1.1, 2.2, 1.1, -1.5, 24.4, head * 0.5, 0xf0e0c0);
     add("body", 1.1, 2.2, 1.1, 1.5, 24.4, head * 0.5, 0xf0e0c0);
-    add("rightArm", 3.2, 3.2, 3.2, armX + 0.6, 38, 0, p.wood);
-    add("rightArm", 3.6, 12, 3.6, armX + 0.6, 46, 0, p.wood);
+    add("rightArm", 2.6, 2.6, 10, armX, 11, 6.2, p.wood);
+    add("rightArm", 4.4, 4.4, 4.4, armX, 11, 12.4, p.wood);
   } else if (kind === "runner") {
     add("body", 1.6, 1.2, 0.5, -1.5, 27.4, head * 0.5, p.dark);
     add("body", 1.6, 1.2, 0.5, 1.5, 27.4, head * 0.5, p.dark);
@@ -1215,8 +1521,8 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 2.2, 4.2, 1.1, head * 0.5, 28.6, 0, p.head);
     add("body", 1.2, 1.2, 0.5, -1.5, 27.2, head * 0.5, p.dark);
     add("body", 1.2, 1.2, 0.5, 1.5, 27.2, head * 0.5, p.dark);
-    add("leftArm", 1.6, 4, 1.6, -armX, 8.2, 1.4, p.steel);
-    add("rightArm", 1.6, 4, 1.6, armX, 8.2, 1.4, p.steel);
+    add("leftArm", 2.2, 2.2, 3.6, -armX, 9, 2.4, p.steel);
+    add("rightArm", 2.2, 2.2, 3.6, armX, 9, 2.4, p.steel);
     add("body", bodyW * 0.4, 5, 0.6, 0, 18, bodyD * 0.5 + 0.3, p.accent);
   } else if (kind === "ram") {
     add("body", 3.2, 6, 2, -head * 0.4, 24 + head + 1, 1, p.head);
@@ -1226,7 +1532,7 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 8, 5, 4, 0, 16, bodyD * 0.5 + 2.4, p.wood);
     add("body", 3.2, 3.2, 6, 0, 16, bodyD * 0.5 + 6, p.wood);
     add("body", 2.2, 2.2, 2.2, 0, 16, bodyD * 0.5 + 9.2, p.steel);
-    add("rightArm", 5, 5, 5, armX + 1, 38, 2, p.wood);
+    add("rightArm", 5, 12, 5, armX, 16, 2, p.wood);
   } else if (kind === "brute") {
     add("body", 2.8, 5, 1.4, -head * 0.55, 29, 0, p.head);
     add("body", 2.8, 5, 1.4, head * 0.55, 29, 0, p.head);
@@ -1236,10 +1542,10 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 1.4, 2.8, 1.4, 1.7, 24.2, head * 0.5, 0xf2e4c4);
     add("leftArm", 7, 4, 6, -armX, 23.5, 0, p.accent);
     add("rightArm", 7, 4, 6, armX, 23.5, 0, p.accent);
-    add("rightArm", 4.2, 4.2, 4.2, armX + 0.6, 38, 0, p.wood);
-    add("rightArm", 4.6, 14, 4.6, armX + 0.6, 48, 0, p.wood);
-    add("rightArm", 1.6, 2.4, 1.6, armX + 0.6, 55.5, 1.4, p.steel);
-    add("rightArm", 1.6, 2.4, 1.6, armX + 0.6, 55.5, -1.4, p.steel);
+    add("rightArm", 3.4, 3.4, 12, armX, 12, 7.2, p.wood);
+    add("rightArm", 5.6, 5.6, 5.6, armX, 12, 14.4, p.wood);
+    add("rightArm", 2, 2.6, 2.6, armX, 12, 17.6, p.steel);
+    add("rightArm", 2, 2.6, 2.6, armX, 12, 11.2, p.steel);
   } else {
     add("body", 3.2, 6, 2, -head * 0.4, 24 + head + 1, 1, p.head);
     add("body", 3.2, 6, 2, head * 0.4, 24 + head + 1, 1, p.head);
@@ -1249,22 +1555,21 @@ function makeUnitGeometry(kind, level = 0) {
     add("body", 2, 3.4, 2, -2.2, 23.6, head * 0.5 + 1.2, 0xf0e0c4);
     add("body", 2, 3.4, 2, 2.2, 23.6, head * 0.5 + 1.2, 0xf0e0c4);
     add("body", bodyW * 0.9, 8, bodyD + 2, 0, 16, 1.2, p.shirt);
-    add("rightArm", 5.5, 5.5, 5.5, armX + 1, 38, 2, p.wood);
-    add("rightArm", 6, 18, 6, armX + 1, 50, 2, p.wood);
-    add("rightArm", 2.4, 6, 2.4, armX + 1, 60, 2, p.steel);
+    add("rightArm", 4.4, 4.4, 14, armX, 12, 8, p.wood);
+    add("rightArm", 6.2, 6.2, 6.2, armX, 12, 16, p.wood);
+    add("rightArm", 2.8, 2.8, 5, armX, 12, 20, p.steel);
   }
 
   if (TROOP_KINDS.includes(kind)) {
     addTroopTier(add, kind, level, p, { armW, armX, bodyW, bodyD, head, legW, legX });
   }
 
-  const rightArmX = kind === "runner" || kind === "archer" || kind === "slinger" || kind === "bat" ? armX : armX + 0.6;
   const pivots = {
     body: { x: 0, y: 0, z: 0 },
     leftLeg: { x: -legX * px, y: 12 * px, z: 0 },
     rightLeg: { x: legX * px, y: 12 * px, z: 0 },
     leftArm: { x: -armX * px, y: 24 * px, z: 0 },
-    rightArm: { x: rightArmX * px, y: 24 * px, z: 0 },
+    rightArm: { x: armX * px, y: 24 * px, z: 0 },
   };
   const bake = (name) => {
     const geo = mergeGeos(buckets[name]);
@@ -1272,7 +1577,7 @@ function makeUnitGeometry(kind, level = 0) {
     if (pvt.x || pvt.y || pvt.z) geo.translate(-pvt.x, -pvt.y, -pvt.z);
     return geo;
   };
-  const raised = kind !== "runner" && kind !== "archer" && kind !== "slinger" && kind !== "bat";
+  const raised = false;
   const shambling = kind === "runner" || kind === "bat";
   return {
     body: bake("body"),
@@ -1394,18 +1699,20 @@ export function createView3D(canvas) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87c4ea);
-  scene.fog = new THREE.Fog(0xb9d8ee, 1200, 2800);
-
-  const camera = new THREE.PerspectiveCamera(58, 1, 0.5, 4000);
+  scene.fog = new THREE.Fog(0x7ec6ea, 70, 260);
+  const camera = new THREE.PerspectiveCamera(58, 1, 0.5, 2800);
   const { w, d } = fieldSize();
   const home = keepCenter();
-  const flyPad = 0.4;
+  const flyMargin = 90;
+  const CAM_START_Y = 30;
+  const CAM_MAX_Y = 54;
+  const CAM_START_PITCH = 0.7;
   const eye = {
     x: home.x,
-    y: 340,
-    z: Math.min(d - 20, home.z + 110),
+    y: CAM_START_Y,
+    z: home.z + 28,
     yaw: Math.PI,
-    pitch: 0.95,
+    pitch: CAM_START_PITCH,
     vx: 0,
     vy: 0,
     vz: 0,
@@ -1428,14 +1735,11 @@ export function createView3D(canvas) {
   sun.shadow.radius = 2;
   sun.shadow.bias = -0.0006;
   sun.shadow.normalBias = 0.08;
-  scene.add(
-    sun,
-    sun.target,
-    new THREE.AmbientLight(0xfff0d8, 0.42),
-    new THREE.HemisphereLight(0xd7ecff, 0xa8b86a, 0.48)
-  );
-
-  scene.add(makeSky());
+  const ambient = new THREE.AmbientLight(0xfff0d8, 0.42);
+  const hemi = new THREE.HemisphereLight(0xd7ecff, 0xa8b86a, 0.48);
+  const sky = makeSky();
+  sky.position.set(w / 2, 0, d / 2);
+  scene.add(sun, sun.target, ambient, hemi, sky);
 
   const heightAt = new Float32Array(COLS * ROWS);
 
@@ -1451,8 +1755,218 @@ export function createView3D(canvas) {
     return sampleHeight(x, z) - sink + 0.12;
   }
 
-  const planeW = w + 400;
-  const planeD = d + 400;
+  const LOOKS = {
+    day: {
+      bg: 0x87c4ea,
+      fog: 0x7ec6ea,
+      fogNear: 70,
+      fogFar: 260,
+      sun: 0xfff4d4,
+      sunI: 1.35,
+      sunY: 240,
+      sunX: w / 2 + 160,
+      sunZ: d / 2 + 90,
+      amb: 0xfff0d8,
+      ambI: 0.42,
+      hemiSky: 0xd7ecff,
+      hemiGround: 0xa8b86a,
+      hemiI: 0.48,
+      exposure: 1,
+      sky: 0xffffff,
+      rain: false,
+    },
+    dusk: {
+      bg: 0xc47a4a,
+      fog: 0xc48a68,
+      fogNear: 80,
+      fogFar: 280,
+      sun: 0xffb070,
+      sunI: 0.85,
+      sunY: 90,
+      sunX: w / 2 + 280,
+      sunZ: d / 2 + 40,
+      amb: 0xffc8a0,
+      ambI: 0.32,
+      hemiSky: 0xffc090,
+      hemiGround: 0x6a5840,
+      hemiI: 0.4,
+      exposure: 0.92,
+      sky: 0xffc8a8,
+      rain: false,
+    },
+    night: {
+      bg: 0x1a2848,
+      fog: 0x243658,
+      fogNear: 60,
+      fogFar: 220,
+      sun: 0xc8d8ff,
+      sunI: 0.38,
+      sunY: 70,
+      sunX: w / 2 - 80,
+      sunZ: d / 2 + 200,
+      amb: 0x6a7aa8,
+      ambI: 0.22,
+      hemiSky: 0x3a5080,
+      hemiGround: 0x2a3828,
+      hemiI: 0.28,
+      exposure: 0.78,
+      sky: 0x6a88c8,
+      rain: false,
+    },
+    storm: {
+      bg: 0x2a3340,
+      fog: 0x4a5560,
+      fogNear: 40,
+      fogFar: 170,
+      sun: 0xb8c4d0,
+      sunI: 0.28,
+      sunY: 110,
+      sunX: w / 2 + 40,
+      sunZ: d / 2 + 60,
+      amb: 0x8898a8,
+      ambI: 0.26,
+      hemiSky: 0x607080,
+      hemiGround: 0x3a4438,
+      hemiI: 0.22,
+      exposure: 0.72,
+      sky: 0x8898a8,
+      rain: true,
+    },
+  };
+
+  const atmosCur = { ...LOOKS.day };
+  const colA = new THREE.Color();
+  const colB = new THREE.Color();
+  let rainOn = false;
+  const MAX_RAIN = 240;
+  const rainPos = new Float32Array(MAX_RAIN * 3);
+  for (let i = 0; i < MAX_RAIN; i += 1) {
+    rainPos[i * 3] = (Math.random() - 0.5) * 80;
+    rainPos[i * 3 + 1] = Math.random() * 40;
+    rainPos[i * 3 + 2] = (Math.random() - 0.5) * 80;
+  }
+  const rainMesh = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(0.035, 0.55, 0.035),
+    new THREE.MeshBasicMaterial({ color: 0xb8cce0, transparent: true, opacity: 0.45, depthWrite: false }),
+    MAX_RAIN
+  );
+  rainMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  rainMesh.castShadow = false;
+  rainMesh.frustumCulled = false;
+  rainMesh.visible = false;
+  scene.add(rainMesh);
+  let lastRain = performance.now();
+  const rainDummy = new THREE.Object3D();
+
+  function lookName(wave, phase) {
+    if (phase === "prep" || phase === "menu" || !wave) return "day";
+    const n = phase === "between" ? wave + 1 : wave;
+    if (n <= 3) return "day";
+    if (n <= 5) return "dusk";
+    if (n <= 7) return "night";
+    return "storm";
+  }
+
+  function lerpLook(from, to, t) {
+    const mix = (a, b) => a + (b - a) * t;
+    colA.setHex(from.bg);
+    colB.setHex(to.bg);
+    atmosCur.bg = colA.lerp(colB, t).getHex();
+    colA.setHex(from.fog);
+    colB.setHex(to.fog);
+    atmosCur.fog = colA.lerp(colB, t).getHex();
+    colA.setHex(from.sun);
+    colB.setHex(to.sun);
+    atmosCur.sun = colA.lerp(colB, t).getHex();
+    colA.setHex(from.amb);
+    colB.setHex(to.amb);
+    atmosCur.amb = colA.lerp(colB, t).getHex();
+    colA.setHex(from.hemiSky);
+    colB.setHex(to.hemiSky);
+    atmosCur.hemiSky = colA.lerp(colB, t).getHex();
+    colA.setHex(from.hemiGround);
+    colB.setHex(to.hemiGround);
+    atmosCur.hemiGround = colA.lerp(colB, t).getHex();
+    colA.setHex(from.sky);
+    colB.setHex(to.sky);
+    atmosCur.sky = colA.lerp(colB, t).getHex();
+    atmosCur.fogNear = mix(from.fogNear, to.fogNear);
+    atmosCur.fogFar = mix(from.fogFar, to.fogFar);
+    atmosCur.sunI = mix(from.sunI, to.sunI);
+    atmosCur.sunY = mix(from.sunY, to.sunY);
+    atmosCur.sunX = mix(from.sunX, to.sunX);
+    atmosCur.sunZ = mix(from.sunZ, to.sunZ);
+    atmosCur.ambI = mix(from.ambI, to.ambI);
+    atmosCur.hemiI = mix(from.hemiI, to.hemiI);
+    atmosCur.exposure = mix(from.exposure, to.exposure);
+    atmosCur.rain = to.rain;
+  }
+
+  let atmosTarget = LOOKS.day;
+  function applyLook() {
+    scene.background.setHex(atmosCur.bg);
+    scene.fog.color.setHex(atmosCur.fog);
+    scene.fog.near = atmosCur.fogNear;
+    scene.fog.far = atmosCur.fogFar;
+    sun.color.setHex(atmosCur.sun);
+    sun.intensity = atmosCur.sunI;
+    sun.position.set(atmosCur.sunX, atmosCur.sunY, atmosCur.sunZ);
+    ambient.color.setHex(atmosCur.amb);
+    ambient.intensity = atmosCur.ambI;
+    hemi.color.setHex(atmosCur.hemiSky);
+    hemi.groundColor.setHex(atmosCur.hemiGround);
+    hemi.intensity = atmosCur.hemiI;
+    renderer.toneMappingExposure = atmosCur.exposure;
+    sky.material.color.setHex(atmosCur.sky);
+    rainOn = Boolean(atmosCur.rain);
+  }
+
+  function setAtmosphere({ wave = 0, phase = "prep" } = {}) {
+    atmosTarget = LOOKS[lookName(wave, phase)] || LOOKS.day;
+    lerpLook(atmosCur, atmosTarget, 0.08);
+    applyLook();
+  }
+
+  function stepRain() {
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - lastRain) / 1000);
+    lastRain = now;
+    if (!rainOn) {
+      rainMesh.visible = false;
+      return;
+    }
+    rainMesh.visible = true;
+    const cx = camera.position.x;
+    const cy = camera.position.y;
+    const cz = camera.position.z;
+    const span = 48;
+    const drop = 34 * dt;
+    for (let i = 0; i < MAX_RAIN; i += 1) {
+      let x = rainPos[i * 3] + cx;
+      let y = rainPos[i * 3 + 1] + cy;
+      let z = rainPos[i * 3 + 2] + cz;
+      y -= drop;
+      x += (i % 5) * 0.02;
+      if (y < cy - 18) y += 36;
+      if (x < cx - span) x += span * 2;
+      if (x > cx + span) x -= span * 2;
+      if (z < cz - span) z += span * 2;
+      if (z > cz + span) z -= span * 2;
+      rainPos[i * 3] = x - cx;
+      rainPos[i * 3 + 1] = y - cy;
+      rainPos[i * 3 + 2] = z - cz;
+      rainDummy.position.set(x, y, z);
+      rainDummy.rotation.set(0.18, 0, 0.05);
+      rainDummy.scale.set(1, 1, 1);
+      rainDummy.updateMatrix();
+      rainMesh.setMatrixAt(i, rainDummy.matrix);
+    }
+    rainMesh.count = MAX_RAIN;
+    rainMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  const planeW = w + 2400;
+  const planeD = d + 2400;
   const terrain = new THREE.Mesh(
     livingGround(planeW, planeD, 260, 260, (x, z) => sampleHeight(x + w / 2, z + d / 2)),
     grassMat(paintGroundTexture(planeW, planeD, w / 2, d / 2))
@@ -1461,6 +1975,22 @@ export function createView3D(canvas) {
   terrain.receiveShadow = true;
   terrain.castShadow = false;
   scene.add(terrain);
+
+  const ocean = new THREE.Mesh(
+    new THREE.PlaneGeometry(18000, 18000, 1, 1),
+    new THREE.MeshLambertMaterial({
+      color: 0x38badc,
+      fog: true,
+      polygonOffset: true,
+      polygonOffsetFactor: 2,
+      polygonOffsetUnits: 2,
+    })
+  );
+  ocean.rotation.x = -Math.PI / 2;
+  ocean.position.set(w / 2, terrainHeight(0, 0), d / 2);
+  ocean.receiveShadow = true;
+  ocean.castShadow = false;
+  scene.add(ocean);
 
   const deco = new THREE.Group();
   scene.add(deco);
@@ -1515,13 +2045,10 @@ export function createView3D(canvas) {
     if (child.isMesh) child.castShadow = false;
   });
 
-  const keep = makeKeep();
   const k0 = tileCenter(KEEP_TILES[0][0], KEEP_TILES[0][1]);
   const k1 = tileCenter(KEEP_TILES[3][0], KEEP_TILES[3][1]);
   const keepX = (k0.x + k1.x) / 2;
   const keepZ = (k0.z + k1.z) / 2;
-  keep.position.set(keepX, plantY(keepX, keepZ, 0.06), keepZ);
-  scene.add(keep);
 
   const gridPts = [];
   for (let c = 0; c <= COLS; c += 1) {
@@ -1555,6 +2082,16 @@ export function createView3D(canvas) {
   wallGhost.castShadow = false;
   wallGhost.visible = false;
   scene.add(wallGhost);
+
+  const gateGhostGeos = [0, 1, 2, 3].map((lv) => makeGateGeometry(lv));
+  const gateGhost = new THREE.Mesh(
+    gateGhostGeos[0],
+    new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, transparent: true, opacity: 0.45 })
+  );
+  gateGhost.castShadow = false;
+  gateGhost.visible = false;
+  gateGhost.userData.level = 0;
+  scene.add(gateGhost);
 
   const wallPost = mesh(new THREE.CylinderGeometry(0.14, 0.16, WALL_VIS_H, 6), 0x6adf7a, 0, WALL_VIS_HALF, 0, {
     mat: { transparent: true, opacity: 0.7 },
@@ -1638,6 +2175,7 @@ export function createView3D(canvas) {
   scene.add(marqueeEdge);
 
   const buildings = new Map();
+  const boats = new Map();
   const flags = new Map();
   const dummy = new THREE.Object3D();
   const MAX_UNITS = 640;
@@ -1692,10 +2230,24 @@ export function createView3D(canvas) {
     wallMeshes.push(wallMesh);
   }
 
+  const gateMeshes = [];
+  for (let lv = 0; lv < TROOP_LEVELS; lv += 1) {
+    const gateMesh = new THREE.InstancedMesh(makeGateGeometry(lv), wallMat, MAX_WALLS);
+    gateMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    gateMesh.castShadow = true;
+    gateMesh.receiveShadow = true;
+    gateMesh.frustumCulled = false;
+    gateMesh.count = 0;
+    gateMesh.visible = false;
+    scene.add(gateMesh);
+    gateMeshes.push(gateMesh);
+  }
+
   const boltMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.06, 0.06, 0.46), mat(0x5a3a1a), MAX_SHOTS);
   const ballMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.26, 0), mat(0x222228), MAX_SHOTS);
   const sparkMesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.16, 0), mat(0x7ec8ff), MAX_SHOTS);
-  for (const mesh of [boltMesh, ballMesh, sparkMesh]) {
+  const flakMesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.2, 0), mat(0xffd36a), MAX_SHOTS);
+  for (const mesh of [boltMesh, ballMesh, sparkMesh, flakMesh]) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.castShadow = false;
     mesh.frustumCulled = false;
@@ -1733,8 +2285,6 @@ export function createView3D(canvas) {
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
-  const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const hit = new THREE.Vector3();
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -1815,11 +2365,11 @@ export function createView3D(canvas) {
     eye.z += eye.vz * dt;
 
     const minY = Math.max(0.85, groundY(eye.x, eye.z) + 1.2);
-    const maxY = 420;
-    const minX = flyPad;
-    const maxX = w - flyPad;
-    const minZ = flyPad;
-    const maxZ = d - flyPad;
+    const maxY = CAM_MAX_Y;
+    const minX = -flyMargin;
+    const maxX = w + flyMargin;
+    const minZ = -flyMargin;
+    const maxZ = d + flyMargin;
     if (eye.x < minX || eye.x > maxX) eye.vx = 0;
     if (eye.z < minZ || eye.z > maxZ) eye.vz = 0;
     if (eye.y < minY || eye.y > maxY) eye.vy = 0;
@@ -1846,10 +2396,10 @@ export function createView3D(canvas) {
 
   function resetCamera() {
     eye.x = home.x;
-    eye.y = 340;
-    eye.z = Math.min(d - 20, home.z + 110);
+    eye.y = CAM_START_Y;
+    eye.z = home.z + 28;
     eye.yaw = Math.PI;
-    eye.pitch = 0.95;
+    eye.pitch = CAM_START_PITCH;
     eye.vx = 0;
     eye.vy = 0;
     eye.vz = 0;
@@ -1875,21 +2425,57 @@ export function createView3D(canvas) {
     applyCam();
   }
 
+  function pickGround(ndcX, ndcY) {
+    pointer.set(ndcX, ndcY);
+    raycaster.setFromCamera(pointer, camera);
+    const keepHits = [];
+    for (const node of buildings.values()) {
+      if (!node.userData.keepRoot) continue;
+      const hits = raycaster.intersectObject(node, true);
+      for (const hit of hits) keepHits.push(hit);
+    }
+    if (keepHits.length) {
+      keepHits.sort((a, b) => a.distance - b.distance);
+      return { x: keepHits[0].point.x, z: keepHits[0].point.z };
+    }
+    const hits = raycaster.intersectObject(terrain);
+    if (hits.length) {
+      const p = hits[0].point;
+      return { x: p.x, z: p.z };
+    }
+    const o = raycaster.ray.origin;
+    const d = raycaster.ray.direction;
+    const yAt = (t) => o.y + d.y * t;
+    const gAt = (t) => groundY(o.x + d.x * t, o.z + d.z * t);
+    const lo0 = 0.25;
+    if (yAt(lo0) <= gAt(lo0)) return { x: o.x + d.x * lo0, z: o.z + d.z * lo0 };
+    let lo = lo0;
+    let hi = null;
+    for (let t = lo0; t <= 240; t += t < 16 ? 0.35 : 1.4) {
+      if (yAt(t) <= gAt(t)) {
+        hi = t;
+        break;
+      }
+      lo = t;
+    }
+    if (hi == null) return null;
+    for (let i = 0; i < 18; i += 1) {
+      const mid = (lo + hi) * 0.5;
+      if (yAt(mid) > gAt(mid)) lo = mid;
+      else hi = mid;
+    }
+    return { x: o.x + d.x * hi, z: o.z + d.z * hi };
+  }
+
   function groundAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(pointer, camera);
-    if (raycaster.ray.intersectPlane(ground, hit)) return { x: hit.x, z: hit.z };
-    return null;
+    const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ny = -((clientY - rect.top) / rect.height) * 2 + 1;
+    return pickGround(nx, ny);
   }
 
   function lookGround() {
-    pointer.set(0, 0);
-    raycaster.setFromCamera(pointer, camera);
-    if (raycaster.ray.direction.y >= -0.02) return null;
-    if (!raycaster.ray.intersectPlane(ground, hit)) return null;
-    return { x: hit.x, z: hit.z };
+    return pickGround(0, 0);
   }
 
   let ghostMesh = ghost;
@@ -1912,13 +2498,37 @@ export function createView3D(canvas) {
     if (!ghostState?.kind) {
       ghostMesh.visible = false;
       wallGhost.visible = false;
+      gateGhost.visible = false;
       wallPost.visible = false;
       wallPostEnd.visible = false;
       snapRing.visible = false;
       return;
     }
-    if (ghostState.kind === "wall" && ghostState.mode) {
+    if (ghostState.mode === "insert") {
       ghostMesh.visible = false;
+      wallGhost.visible = false;
+      wallPost.visible = false;
+      wallPostEnd.visible = false;
+      snapRing.visible = false;
+      const lv = Math.max(0, Math.min(3, ghostState.level || 0));
+      if (gateGhost.userData.level !== lv) {
+        gateGhost.geometry = gateGhostGeos[lv];
+        gateGhost.userData.level = lv;
+      }
+      const x = (ghostState.ax + ghostState.bx) / 2;
+      const z = (ghostState.az + ghostState.bz) / 2;
+      gateGhost.visible = true;
+      gateGhost.position.set(x, plantY(x, z, 0.06), z);
+      gateGhost.rotation.y = ghostState.yaw || 0;
+      gateGhost.scale.set(1, 1, 1);
+      tintGhost(gateGhost, ghostState.ok);
+      return;
+    }
+    if ((ghostState.kind === "wall" || ghostState.kind === "gate") && ghostState.mode) {
+      ghostMesh.visible = false;
+      const stretch = ghostState.kind === "gate" ? gateGhost : wallGhost;
+      const other = ghostState.kind === "gate" ? wallGhost : gateGhost;
+      other.visible = false;
       const ok = ghostState.ok;
       wallPost.visible = true;
       wallPost.position.set(ghostState.ax, plantY(ghostState.ax, ghostState.az, 0.06), ghostState.az);
@@ -1936,26 +2546,24 @@ export function createView3D(canvas) {
         : ghostState.snappedStart
           ? { x: ghostState.ax, z: ghostState.az }
           : null;
-      snapRing.visible = Boolean(ringAt);
       if (ringAt) {
-        snapRing.position.set(ringAt.x, plantY(ringAt.x, ringAt.z, -0.12), ringAt.z);
-        snapRing.material.color.setHex(ok ? 0xfff4a3 : 0xff8a7a);
-      }
+        snapRing.visible = true;
+        snapRing.position.set(ringAt.x, plantY(ringAt.x, ringAt.z, -0.14), ringAt.z);
+      } else snapRing.visible = false;
       if (ghostState.mode === "stretch") {
         const dx = ghostState.bx - ghostState.ax;
         const dz = ghostState.bz - ghostState.az;
         const length = Math.hypot(dx, dz);
-        wallGhost.visible = length > 0.12;
-        if (wallGhost.visible) {
-          placeWallNode(wallGhost, ghostState.ax, ghostState.az, ghostState.bx, ghostState.bz, length, Math.atan2(-dz, dx));
-          tintGhost(wallGhost, ok);
+        stretch.visible = length > 0.05;
+        if (stretch.visible) {
+          placeWallNode(stretch, ghostState.ax, ghostState.az, ghostState.bx, ghostState.bz, length, Math.atan2(-dz, dx));
+          tintGhost(stretch, ok);
         }
-      } else {
-        wallGhost.visible = false;
-      }
+      } else stretch.visible = false;
       return;
     }
     wallGhost.visible = false;
+    gateGhost.visible = false;
     wallPost.visible = false;
     wallPostEnd.visible = false;
     snapRing.visible = false;
@@ -2004,6 +2612,8 @@ export function createView3D(canvas) {
   }
 
   function sync(state) {
+    if (state.atmosphere) setAtmosphere(state.atmosphere);
+    stepRain();
     grid.visible = !!state.showGrid;
     if (state.ghost) {
       hover.visible = false;
@@ -2043,8 +2653,10 @@ export function createView3D(canvas) {
 
     const placed = [];
     const walls = [];
+    const gates = [];
     for (const b of state.buildings) {
       if (b.kind === "wall") walls.push(b);
+      else if (b.kind === "gate") gates.push(b);
       else placed.push(b);
     }
     syncList(
@@ -2055,7 +2667,7 @@ export function createView3D(canvas) {
         node.position.set(b.x, plantY(b.x, b.z, 0.08), b.z);
         node.rotation.y = 0;
         const s = stampScale(b.kind);
-        const grow = 1 + (b.level || 0) * 0.04;
+        const grow = b.kind === "keep" ? 1 : 1 + (b.level || 0) * 0.04;
         node.scale.set(s.x, grow, s.z);
         const aim = node.userData.aim;
         if (aim && b.aimYaw != null) {
@@ -2093,6 +2705,38 @@ export function createView3D(canvas) {
       finishInstances(wallMeshes[lv], wallN);
     }
 
+    const gatesByLv = [[], [], [], []];
+    for (const b of gates) gatesByLv[Math.min(3, b.level || 0)].push(b);
+    for (let lv = 0; lv < gateMeshes.length; lv += 1) {
+      const list = gatesByLv[lv];
+      const gateN = Math.min(list.length, MAX_WALLS);
+      for (let i = 0; i < gateN; i += 1) {
+        const b = list[i];
+        writeInstance(
+          gateMeshes[lv],
+          i,
+          b.x,
+          plantY(b.x, b.z, 0.06),
+          b.z,
+          b.yaw || 0,
+          1,
+          1,
+          1
+        );
+      }
+      finishInstances(gateMeshes[lv], gateN);
+    }
+
+    syncList(
+      boats,
+      state.boats || [],
+      () => makeBoat(),
+      (node, b) => {
+        node.position.set(b.x, 0.42, b.z);
+        node.rotation.y = b.yaw || 0;
+      }
+    );
+
     const picked = new Set(state.picked || []);
     const byKind = {};
     for (const kind of Object.keys(unitLayer)) byKind[kind] = [];
@@ -2114,7 +2758,7 @@ export function createView3D(canvas) {
     for (const [kind, layer] of Object.entries(unitLayer)) {
       const list = byKind[kind];
       const n = Math.min(list.length, MAX_UNITS);
-      const { meshes, pivots, raised, shambling, cadence } = layer;
+      const { meshes, pivots, shambling, cadence } = layer;
       for (let i = 0; i < n; i += 1) {
         const u = list[i];
         const prev = lastPose.get(u.id);
@@ -2143,7 +2787,7 @@ export function createView3D(canvas) {
         const hang = swing * 0.38 * amp;
         const chop = u.cooldown > 0.18 ? Math.min(0.55, u.cooldown) * 0.7 : 0;
         let leftArm = shambling ? hang * 0.45 : -hang;
-        let rightArm = shambling ? -hang * 0.45 : raised ? hang * 0.16 - chop : hang * 0.22;
+        let rightArm = shambling ? -hang * 0.45 : hang * 0.85 - chop;
         const leftArmZ = shambling ? 0.08 * amp * swing : 0;
         const rightArmZ = shambling ? -0.08 * amp * swing : 0;
         writeRigPart(meshes.body, i, u.x, y, u.z, yaw, pivots.body, lean, waddle);
@@ -2169,13 +2813,19 @@ export function createView3D(canvas) {
     let bolts = 0;
     let balls = 0;
     let sparks = 0;
+    let flaks = 0;
     for (const p of state.projectiles) {
-      const y = groundY(p.x, p.z) + (p.fx === "spark" ? 1.15 : 0.7);
+      const y = groundY(p.x, p.z) + (p.fx === "spark" ? 1.15 : p.fx === "flak" ? 1.45 : 0.7);
       const yaw = Math.atan2(p.tx - p.x, p.tz - p.z);
       if (p.fx === "spark") {
         if (sparks < MAX_SHOTS) {
           writeInstance(sparkMesh, sparks, p.x, y, p.z, yaw);
           sparks += 1;
+        }
+      } else if (p.fx === "flak") {
+        if (flaks < MAX_SHOTS) {
+          writeInstance(flakMesh, flaks, p.x, y, p.z, yaw);
+          flaks += 1;
         }
       } else if (p.fx === "ball" || p.splash) {
         if (balls < MAX_SHOTS) {
@@ -2190,6 +2840,7 @@ export function createView3D(canvas) {
     finishInstances(boltMesh, bolts);
     finishInstances(ballMesh, balls);
     finishInstances(sparkMesh, sparks);
+    finishInstances(flakMesh, flaks);
 
     syncList(
       flags,
@@ -2198,13 +2849,15 @@ export function createView3D(canvas) {
       (node, f) => node.position.set(f.x, plantY(f.x, f.z, 0.04), f.z)
     );
 
-    keep.traverse((child) => {
-      if (child.userData.keepBody && child.material?.emissive) {
-        const hurt = state.keepHp / state.keepMax;
-        child.material.emissive.setHex(hurt < 0.35 ? 0x440000 : 0x000000);
-      }
-    });
     for (const node of buildings.values()) {
+      if (node.userData.keepRoot) {
+        node.traverse((child) => {
+          if (child.userData.keepBody && child.material?.emissive) {
+            const hurt = state.keepHp / state.keepMax;
+            child.material.emissive.setHex(hurt < 0.35 ? 0x440000 : 0x000000);
+          }
+        });
+      }
       node.traverse((child) => {
         if (child.userData.spin) child.rotation.z += 0.012;
       });
@@ -2250,6 +2903,7 @@ export function createView3D(canvas) {
     groundAt,
     lookGround,
     troopPortraits,
+    setAtmosphere,
     sync,
     render() {
       renderer.render(scene, camera);
