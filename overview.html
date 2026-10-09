@@ -318,11 +318,12 @@
     <div class="sky">
       <div class="wrap">
         <header class="hero">
-          <p class="kicker">Game overview</p>
+          <p class="kicker">Minigames</p>
           <h1>Castle defense</h1>
           <p class="lead">
-            A browser game: fly over a meadow island, build around the keep in the
-            middle, train an army, and hold off ten waves of attackers from the shore.
+            You fly a camera over a small island, spend gold on walls and buildings
+            around the keep, train troops, then start ten waves from the shore. It’s
+            the third game on the minigames hub, next to Neon Clash and Mini 8-Ball.
           </p>
           <p class="links">
             <a href="https://justusschroeder.github.io/Minigames/castle-defense/">Play the game</a>
@@ -331,16 +332,11 @@
         </header>
 
         <section>
-          <h2>What this is</h2>
-          <p>
-            Castle defense is one of three games on the minigames home page, next to
-            Neon Clash and Mini 8-Ball. It runs in a web browser. There is no account
-            and nothing to install.
-          </p>
+          <h2>The game</h2>
           <div class="pair">
             <div class="card">
               <h3>The island</h3>
-              <p>The map is a small island: grass, woods, beach, shallow water, rocks, and sea. The keep stands in the centre. Enemies arrive in the water around the edge.</p>
+              <p>One map. Keep in the middle, grass and trees around it, beach and rocks at the edge. Enemies don’t use a single lane. They spawn in the shallows all around the island and walk inland.</p>
             </div>
             <figure>
               <img src="assets/overview/island.png?v=6" alt="The meadow island with the keep in the centre." />
@@ -348,8 +344,8 @@
           </div>
           <div class="army">
             <div class="card">
-              <h3>The army</h3>
-              <p>Open a barracks to train spearman, slinger, raider, knight, or warden. Drag a box to select them, then click the ground to send them. Friendly troops can walk through the player’s own walls.</p>
+              <h3>Troops</h3>
+              <p>Click a barracks and pick a type. They spawn as a squad and walk to the rally point in front of the building. Spearman and slinger are cheap filler (8 and 6 per click). Raiders are faster. Knights cost 28 gold and only come in threes, but they take a beating. Wardens are the expensive ranged ones. Drag a box to select, click the ground to send them. They path through your own walls on purpose, otherwise a closed ring traps them.</p>
             </div>
             <div class="troops">
               <figure>
@@ -376,62 +372,43 @@
           </div>
           <div class="grid">
             <div class="card">
-              <h3>Building and gold</h3>
-              <p>The player draws wooden palisades and places farms, barracks, a workshop, spike pits, crossbows, cannons, and mage towers. Farms make gold. The workshop repairs walls and upgrades troops.</p>
+              <h3>Gold and buildings</h3>
+              <p>You start with 360 gold. Farms cost 50 and pay 1.5 gold per second; you can only have six. During setup gold is capped at 540, so sitting still doesn’t stockpile a huge bank. Walls are drawn as a line (10 gold). The bar at the bottom is wall, crossbow, cannon, mage tower, air defense, spike pit, farm, barracks, workshop. The workshop repairs nearby walls and is required before you can upgrade troops. Click a placed building to sell it. You get the full cost back.</p>
             </div>
             <div class="card">
-              <h3>The waves</h3>
-              <p>Ten waves: goblins, runners, archers, brutes, flying bats, wall climbers, and rams. They walk toward the keep. After a breach they keep hitting nearby wall pieces instead of rushing farms.</p>
-            </div>
-            <div class="card">
-              <h3>How it looks</h3>
-              <p>The player flies around the island. Walls are wooden palisades that look the same from both sides. Soldiers look like small knights; enemies are green. They walk like people rather than sliding.</p>
-            </div>
-            <div class="card">
-              <h3>The HUD</h3>
-              <p>Gold, army size, wave, and stronghold health sit at the top. The build bar along the bottom has eight buildings. Click a building in the world to inspect it, sell it, or upgrade troops.</p>
+              <h3>Waves</h3>
+              <p>Hit Start waves when the layout is good enough. There are ten. Wave 1 is only goblins. Later waves add runners, archers, brutes, bats (they fly over walls, so air defense matters), climbers, rams that smash palisades, and an ogre on 9 and 10. They path to the keep. If they break through a wall they keep chewing the next segment instead of running past to the farms. The keep starts at 400 HP; click it to spend gold and upgrade Keep → Fort → Castle → Citadel. If keep HP hits 0 you lose. Survive wave 10 and you win. Kills give gold, and farms keep paying during the fight.</p>
             </div>
           </div>
         </section>
 
         <section>
-          <h2>How the game was built</h2>
-          <ol class="timeline">
-            <li><span class="n">1</span><span>Castle defense was added to the minigames home page, next to the other two games.</span></li>
-            <li><span class="n">2</span><span>The meadow island, the keep, and a view the player can fly around came first.</span></li>
-            <li><span class="n">3</span><span>Next came building: spend gold on farms, towers, and walls drawn as a line on the grass.</span></li>
-            <li><span class="n">4</span><span>Then the attack: enemies land from the shore, walk to the keep, break walls, and the player wins or loses over ten waves.</span></li>
-            <li><span class="n">5</span><span>Then an army: train groups at the barracks, select them with a drag box, and send them out.</span></li>
-            <li><span class="n">6</span><span>Characters got a proper look — knights on the player’s side, green attackers — and they walk instead of sliding.</span></li>
-            <li><span class="n">7</span><span>Last polish: a clearer HUD, mage towers, spike pits, a workshop with troop upgrades, new attackers (bats, climbers, rams), and palisades that look the same from both sides.</span></li>
-          </ol>
+          <h2>How I built it</h2>
+          <p>
+            I added it to the hub next to the other two games. For a while it was only the island, the keep, and a camera you could fly around. Then gold and placing stuff: farms, towers, walls you drag as a line on the grass. The match itself came after that — enemies spawning in the water, walking to the keep, ten waves, a win/lose screen.
+          </p>
+          <p>
+            Troops were not in the first versions. Barracks, drag-select, click to move. They used to slide; now they walk. Friendly units are the small knight models, enemies are green. After it was already playable I added the workshop (repairs + troop upgrades), mage towers, spike pits, air defense, bats/climbers/rams, and rebuilt the palisades so they don’t look hollow from inside the ring.
+          </p>
         </section>
 
         <section>
-          <h2>How to try it</h2>
+          <h2>Controls</h2>
           <div class="flow">
             <article>
-              <strong>Get ready</strong>
-              <p>Press Play, click the meadow so the mouse looks around, then fly with the keyboard. Place farms on grass for gold, barracks for soldiers, and walls and towers for defense. During this setup, gold cannot go above 540.</p>
+              <strong>Camera</strong>
+              <p>Play, then click the island so the mouse locks. WASD or arrows to fly, space up, shift down. Escape unlocks the mouse.</p>
             </article>
             <article>
-              <strong>Train an army</strong>
-              <p>Click a barracks and pick a troop. They appear and walk to the meeting point. Drag a box around soldiers to select them, then click the ground to send them. Q drops the selection. E selects everyone.</p>
+              <strong>Build</strong>
+              <p>Number keys 1–9 match the hotbar. Click to place. For walls, click once, drag, click again. G toggles a gate in the wall tool. Q cancels the current tool, or clears the troop selection if you aren’t holding one.</p>
             </article>
             <article>
-              <strong>Start the waves</strong>
-              <p>Enemies appear in the shallow water around the island. They walk from the beach, across the grass, toward the keep. If a wall is in the way, they attack the wall instead of going around it.</p>
-            </article>
-            <article>
-              <strong>Defend</strong>
-              <p>Crossbows shoot one enemy at a time. Cannons hit a small group nearby. Mage towers slow packs. Spike pits hurt walkers. Soldiers fight anything close enough.</p>
-            </article>
-            <article>
-              <strong>Win or lose</strong>
-              <p>If the keep’s health reaches zero, the game is lost. If wave 10 is cleared, the game is won. Defeated enemies give gold, and farms keep earning during play.</p>
+              <strong>Army</strong>
+              <p>Click a barracks, pick a unit. Drag a box around troops, click ground to move. E selects everyone still alive. Housing is 20 per barracks, so you run out of space unless you build another one.</p>
             </article>
           </div>
-          <p class="note">A building can be sold at any time to get the gold back and change the layout.</p>
+          <p class="note">Gold, army count, wave, and keep health are at the top. Click a building in the world to inspect, sell, or (on barracks/workshop) train and upgrade.</p>
         </section>
       </div>
     </div>
