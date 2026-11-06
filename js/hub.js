@@ -12,6 +12,10 @@ const I18N = {
     poolBlurb: "8-ball pool against a bot. Drag back from the cue ball to shoot.",
     keepTitle: "Castle defense",
     keepBlurb: "Hold the meadow. Fly the camera, place defenses, and survive the waves.",
+    meridianTitle: "Meridian Front",
+    meridianBlurb: "Late Cretaceous grand strategy. Command dinosaur packs on the European map.",
+    nullTitle: "Site Null",
+    nullBlurb: "Endless generated backrooms. Walk, blink, and do not look away.",
     langLabel: "Language",
   },
   de: {
@@ -25,6 +29,10 @@ const I18N = {
     poolBlurb: "8-Ball gegen einen Bot. Ziehe von der weißen Kugel weg, um zu stoßen.",
     keepTitle: "Castle defense",
     keepBlurb: "Halte die Wiese. Flieg mit der Kamera, bau Verteidigung und übersteh die Wellen.",
+    meridianTitle: "Meridian Front",
+    meridianBlurb: "Grand Strategy in der späten Kreide. Führe Dinosaurier-Rudel auf der Europakarte.",
+    nullTitle: "Site Null",
+    nullBlurb: "Endlose generierte Backrooms. Lauf, blinzle, und schau nicht weg.",
     langLabel: "Sprache",
   },
 };

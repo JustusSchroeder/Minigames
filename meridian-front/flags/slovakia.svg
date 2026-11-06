@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 24" role="img" aria-label="Carpathian Ridge">
+  <rect width="36" height="24" fill="#1c2c34"/>
+  <rect y="17" width="36" height="7" fill="#4d6a75"/>
+  <polygon points="2,17 11,6 20,17" fill="#8aa4ae"/>
+  <polygon points="12,17 22,3 32,17" fill="#e6d5b0"/>
+  <polygon points="22,17 30,8 36,17" fill="#6d8790"/>
+</svg>
