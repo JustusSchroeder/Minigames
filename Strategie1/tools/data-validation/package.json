@@ -1,0 +1,10 @@
+{
+  "name": "@meridian/data-validation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@meridian/content": "0.1.0",
+    "@meridian/core": "0.1.0"
+  }
+}

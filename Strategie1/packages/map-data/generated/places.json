@@ -1,0 +1,15 @@
+{
+  "berlin": "de-be",
+  "warsaw": "pl-mz",
+  "krakow": "pl-ma",
+  "lodz": "pl-ld",
+  "poznan": "pl-wp",
+  "galicia": "pl-pk",
+  "bratislava": "sk-bl",
+  "gerPomerania": "de-mv",
+  "gerSilesia": "de-sn",
+  "gerPrussia": "de-bb",
+  "attackFrom": "de-sn",
+  "attackTo": "pl-ds",
+  "attackToName": "Lower Silesian"
+}

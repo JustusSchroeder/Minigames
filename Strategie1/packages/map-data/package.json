@@ -1,0 +1,13 @@
+{
+  "name": "@meridian/map-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./provinces": "./generated/provinces.json",
+    "./topology": "./generated/provinces.topology.json",
+    "./land": "./generated/land.json",
+    "./spatial-index": "./generated/spatial-index.json",
+    "./source": "./source/theater.ts"
+  }
+}

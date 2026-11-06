@@ -1,0 +1,29 @@
+{
+  "name": "meridian-front",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "map:build": "node --experimental-strip-types tools/map-import/src/cli.ts",
+    "validate:data": "node --experimental-strip-types tools/data-validation/src/cli.ts",
+    "dev": "npm run map:build && npm run dev -w @meridian/web",
+    "build": "npm run map:build && npm run build -w @meridian/web",
+    "typecheck": "tsc -p packages/shared --noEmit && tsc -p packages/core --noEmit && tsc -p packages/content --noEmit && tsc -p tools/map-import --noEmit && tsc -p tools/data-validation --noEmit && tsc -p apps/web --noEmit",
+    "test": "npm run map:build && vitest run",
+    "test:e2e": "npm run map:build && playwright test -c apps/web/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/geojson": "7946.0.16",
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5",
+    "webpack": "^5.112.2",
+    "webpack-cli": "^7.2.3"
+  }
+}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 24" role="img" aria-label="Coastal chalk">
+  <rect width="36" height="24" fill="#1e4d68"/>
+  <rect y="14" width="36" height="10" fill="#d7c9a2"/>
+  <polygon points="0,14 8,10 16,14 24,9 36,14" fill="#e8dcc0"/>
+</svg>

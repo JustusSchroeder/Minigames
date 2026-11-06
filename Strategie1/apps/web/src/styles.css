@@ -1,0 +1,551 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  background: #141814;
+  color: #e7e1d4;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+}
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+  background: #2a3128;
+}
+
+button {
+  background: #2a3128;
+  border: 1px solid #6d6248;
+  border-radius: 2px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+button:hover { background: #343d31; }
+button[aria-pressed="true"], button.active {
+  background: #4a4432;
+  border-color: #c4a35a;
+}
+
+button:focus-visible {
+  outline: 2px solid #e6c56a;
+  outline-offset: 2px;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.title-screen, .game-shell {
+  min-height: 100%;
+}
+
+.title-screen {
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at top, rgba(196, 163, 90, 0.16), transparent 40%),
+    #141814;
+}
+
+.title-card {
+  width: min(720px, 100%);
+  border: 1px solid #6d6248;
+  background: #1c221c;
+  padding: 2rem;
+}
+
+.title-card h1 {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.25rem;
+}
+
+.eyebrow, .muted { color: #b7b1a4; }
+
+.choice-row, .speed-row, .save-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.country-choice {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  min-width: 180px;
+  text-align: left;
+}
+
+.country-choice img { width: 36px; height: 24px; object-fit: cover; }
+
+.game-shell {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: #1e4d68;
+}
+
+.game-shell:fullscreen,
+.game-shell:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+}
+
+.hud-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  padding: 0.45rem 0.6rem 0;
+  pointer-events: none;
+}
+
+.hud-top button,
+.hud-top select,
+.hud-top input,
+.hud-clock,
+.hud-tools,
+.hud-country {
+  pointer-events: auto;
+}
+
+.hud-country, .hud-clock, .hud-tools {
+  background: rgba(22, 16, 12, 0.88);
+  border: 1px solid #c4a35a;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+.hud-country {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  justify-self: start;
+  padding: 0.4rem 0.6rem;
+  pointer-events: auto;
+}
+
+.hud-country img { width: 42px; height: 28px; object-fit: cover; border: 1px solid #2a2118; }
+
+.hud-country strong, .date {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-weight: 500;
+}
+
+.hud-country span, .hud-country strong { display: block; }
+
+.hud-country span { color: #d9d0c0; font-size: 0.78rem; }
+
+.hud-clock {
+  justify-self: center;
+  min-width: 0;
+  padding: 0.35rem 0.7rem 0.5rem;
+  text-align: center;
+}
+
+.date {
+  display: block;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-tools {
+  justify-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  max-width: 34rem;
+  padding: 0.4rem;
+  pointer-events: auto;
+}
+
+.map-mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+}
+
+.map-mode-label select {
+  background: #2a241c;
+  color: inherit;
+  border: 1px solid #8d7344;
+  padding: 0.18rem 0.3rem;
+}
+
+.mode-row, .speed-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-clock .speed-row { margin: 0.25rem 0 0; }
+
+.hud-industry {
+  position: absolute;
+  top: 5.6rem;
+  left: 0.55rem;
+  bottom: 0.55rem;
+  z-index: 4;
+  width: min(340px, 36vw);
+  display: flex;
+  pointer-events: none;
+}
+
+.industry-dock { flex: 1 1 auto; width: 100%; }
+
+.queue-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-size: 0.84rem;
+}
+
+.queue-row span, .queue-row strong { display: block; }
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.28rem;
+  font-size: 0.86rem;
+}
+
+.stepper strong { font-weight: 500; }
+
+.panel select, .panel input.search {
+  background: #12100e;
+  color: inherit;
+  border: 1px solid #6d5a38;
+  padding: 0.3rem;
+}
+
+.panel select { margin-bottom: 0.45rem; }
+
+button:disabled { opacity: 0.45; }
+
+.search.narrow { width: 4.5rem; margin: 0; }
+
+.hud-top button, .panel button {
+  background: #2a241c;
+  border-color: #8d7344;
+  padding: 0.22rem 0.45rem;
+  font-size: 0.82rem;
+}
+
+.hud-side {
+  position: absolute;
+  top: 5.6rem;
+  right: 0.55rem;
+  bottom: 0.55rem;
+  z-index: 4;
+  width: min(300px, 34vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.panel {
+  min-height: 0;
+  overflow: auto;
+  padding: 0.65rem 0.7rem;
+  background: rgba(22, 16, 12, 0.9);
+  border: 1px solid #c4a35a;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.game-shell.map-drawing .hud-side .panel {
+  pointer-events: none;
+  opacity: 0.78;
+}
+
+.game-shell.map-drawing .hud-industry {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.outliner {
+  flex: 1 1 0;
+  min-height: 7.5rem;
+  overflow: auto;
+}
+
+.front-dock {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.war-note {
+  margin: 0 0 0.55rem;
+  padding: 0.4rem 0.5rem;
+  background: #2a1814;
+  border-left: 3px solid #a84838;
+  font-size: 0.86rem;
+}
+
+.steps {
+  margin: 0 0 0.55rem;
+  padding-left: 1.15rem;
+  font-size: 0.86rem;
+}
+
+.steps li { margin-bottom: 0.15rem; }
+
+.order-banner {
+  position: absolute;
+  left: 50%;
+  top: 6.4rem;
+  transform: translateX(-50%);
+  z-index: 7;
+  width: min(36rem, calc(100% - 2rem));
+  margin: 0;
+  padding: 0.55rem 0.8rem 0.65rem;
+  background: rgba(22, 16, 12, 0.96);
+  border: 2px solid #c4a35a;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.order-banner p { margin: 0 0 0.4rem; }
+
+.order-banner .muted { margin-bottom: 0; }
+
+.banner-hint {
+  margin-top: 0.45rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #c4a35a;
+  background: #2a241c;
+}
+
+.map-legend {
+  position: absolute;
+  left: 0.6rem;
+  bottom: 4.4rem;
+  z-index: 3;
+  width: min(22rem, calc(100% - 1.2rem));
+  padding: 0.4rem 0.5rem 0.45rem;
+  background: rgba(18, 14, 10, 0.86);
+  border: 1px solid #c4a35a;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.legend-title {
+  margin: 0 0 0.3rem;
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-size: 0.86rem;
+}
+
+.map-legend ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+
+.legend-swatch {
+  flex: 0 0 1.5rem;
+  height: 0.7rem;
+  margin-top: 0.2rem;
+}
+
+.legend-own {
+  border: 2px solid #e0b03a;
+  border-radius: 5px;
+  background: #14110e;
+}
+
+.legend-foe {
+  clip-path: polygon(12% 0, 88% 0, 100% 68%, 50% 100%, 0 68%);
+  background: #d94a4a;
+}
+
+.legend-front {
+  background: #d94a4a;
+  box-shadow: inset 0 0 0 1px #1a140e;
+  background-image: repeating-linear-gradient(
+    90deg,
+    #f6f1e6 0 2px,
+    transparent 2px 7px
+  );
+}
+
+.legend-arrow {
+  clip-path: polygon(0 35%, 62% 35%, 62% 10%, 100% 50%, 62% 90%, 62% 65%, 0 65%);
+  background: #e0b03a;
+}
+
+.legend-march {
+  background: repeating-linear-gradient(
+    90deg,
+    #f6f1e6 0 6px,
+    transparent 6px 11px
+  );
+}
+
+.province-dock {
+  flex: 0 1 auto;
+  max-height: 30%;
+  min-height: 0;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.panel-heading h2 { margin: 0; }
+
+.find-results { max-height: 8.5rem; overflow: auto; }
+
+.panel h2, .panel h3 {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-weight: 500;
+  margin: 0 0 0.45rem;
+}
+
+.map-host {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #1e4d68;
+}
+
+.map-host canvas { display: block; width: 100%; height: 100%; }
+
+.map-note {
+  position: absolute;
+  left: 0.6rem;
+  bottom: 0.6rem;
+  max-width: 22rem;
+  padding: 0.3rem 0.45rem;
+  background: rgba(18, 14, 10, 0.72);
+  border: 1px solid #6d5a38;
+  font-size: 0.72rem;
+  pointer-events: none;
+}
+
+.list-button, .division-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 0.3rem;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.7rem;
+  margin: 0.45rem 0;
+  font-size: 0.88rem;
+}
+
+.report, .error-banner {
+  margin-top: 0.6rem;
+  padding: 0.45rem;
+  border: 1px solid #c4a35a;
+  background: #2a241c;
+}
+
+.error-banner { border-color: #8a4038; }
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  background: rgba(10, 12, 10, 0.62);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.dialog {
+  width: min(520px, 100%);
+  background: #1c1814;
+  border: 1px solid #c4a35a;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.search {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  background: #12100e;
+  color: inherit;
+  border: 1px solid #6d5a38;
+  padding: 0.35rem;
+}
+
+@media (max-width: 960px) {
+  .hud-top { grid-template-columns: 1fr; }
+  .hud-clock, .hud-tools, .hud-country { justify-self: stretch; min-width: 0; }
+  .hud-industry {
+    top: auto;
+    left: 0.4rem;
+    right: 0.4rem;
+    bottom: 0.4rem;
+    width: auto;
+    max-height: 52%;
+  }
+  .game-shell:has(.hud-industry) .hud-side { display: none; }
+  .hud-side {
+    top: 15rem;
+    left: 0.4rem;
+    right: 0.4rem;
+    bottom: 0.4rem;
+    width: auto;
+    height: auto;
+  }
+  .date { font-size: 1.05rem; }
+  .map-legend {
+    bottom: auto;
+    top: 15.2rem;
+    max-width: 18rem;
+  }
+  .order-banner { top: 11.6rem; }
+}
+
+@media (prefers-contrast: more) {
+  .order-banner, .map-legend, .panel {
+    border-width: 2px;
+  }
+  button:focus-visible {
+    outline-width: 3px;
+  }
+}
