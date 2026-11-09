@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Site Null</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app">
+      <canvas id="view"></canvas>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <div id="eyelids" class="eyelids" aria-hidden="true">
+        <i class="lid top"></i>
+        <i class="lid bot"></i>
+        <i class="lid fade"></i>
+      </div>
+      <div id="crosshair" class="crosshair" hidden></div>
+      <div id="blink-meter" class="blink-meter" hidden>
+        <i id="blink-fill"></i>
+      </div>
+      <p id="place" class="place" hidden></p>
+      <p id="prompt" class="prompt" hidden></p>
+      <p id="look-hint" class="look-hint">Click to look around</p>
+
+      <div id="menu" class="overlay">
+        <div class="card">
+          <p class="kicker">Uncatalogued</p>
+          <h1>Site Null</h1>
+          <p class="lead">
+            An endless generated site. Walk. The rooms do not repeat. Something else is filed here.
+          </p>
+          <button type="button" id="btn-enter" class="go">Enter</button>
+          <button type="button" id="btn-full" class="ghost">Fullscreen</button>
+          <a class="hub-link" href="../">All games</a>
+        </div>
+      </div>
+
+      <div id="pause" class="overlay" hidden>
+        <div class="card slim">
+          <p class="kicker">Paused</p>
+          <h2>Still here</h2>
+          <button type="button" id="btn-resume" class="go">Continue</button>
+          <button type="button" id="btn-full-pause" class="ghost">Fullscreen</button>
+          <button type="button" id="btn-hub" class="ghost">All games</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

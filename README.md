@@ -12,6 +12,7 @@ A small GitHub Pages arcade with more than one browser game.
 | Castle defense | `castle-defense/` | [Open](https://justusschroeder.github.io/Minigames/castle-defense/) |
 | Meridian Front | `meridian-front/` | [Open](https://justusschroeder.github.io/Minigames/meridian-front/) |
 | Mini 8-Ball | `mini-8-ball/` | [Open](https://justusschroeder.github.io/Minigames/mini-8-ball/) |
+| Site Null | `site-null/` | [Open](https://justusschroeder.github.io/Minigames/site-null/) |
 
 The home page lists each game as a card, with a preview image and an English / German language toggle.
 
@@ -34,4 +35,5 @@ neon-clash/         Rock paper scissors
 castle-defense/     Castle defense (see castle-defense/README.md)
 meridian-front/     Late Cretaceous grand strategy (source in Strategie1/)
 mini-8-ball/        8-ball vs a bot
+site-null/          Generated backrooms wander
 ```
