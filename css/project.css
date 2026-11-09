@@ -1,0 +1,264 @@
+:root {
+  --sky: #7ec6ef;
+  --ink: #1a2420;
+  --muted: #4a5a52;
+  --paper: #f4efe2;
+  --panel: #fffaf0;
+  --edge: #2a332c;
+  --go: #2d8a3c;
+  --gold: #e2c45c;
+  --shot: #d9d3c6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  line-height: 1.5;
+  background: var(--sky);
+}
+
+.sky {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 0 0;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  width: min(980px, calc(100% - 32px));
+  margin: 0 auto 64px;
+}
+
+header.hero {
+  background: var(--panel);
+  border: 3px solid var(--edge);
+  border-radius: 14px;
+  box-shadow: 0 10px 0 rgba(20, 32, 24, 0.16);
+  padding: 26px 26px 20px;
+}
+
+.kicker {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  letter-spacing: -0.03em;
+}
+
+.lead {
+  margin: 0;
+  color: var(--muted);
+  max-width: 42rem;
+  font-size: 1.05rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.links a {
+  color: #f4f0e2;
+  font-weight: 700;
+  text-decoration: none;
+  border: 2px solid var(--edge);
+  background: var(--go);
+  padding: 6px 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 0 rgba(20, 32, 24, 0.16);
+}
+
+.links a.ghost {
+  color: var(--ink);
+  background: var(--paper);
+}
+
+section {
+  margin-top: 22px;
+  background: var(--panel);
+  border: 3px solid var(--edge);
+  border-radius: 14px;
+  box-shadow: 0 10px 0 rgba(20, 32, 24, 0.1);
+  padding: 22px 24px 24px;
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.45rem;
+}
+
+section > p {
+  margin: 0 0 12px;
+}
+
+section > p:last-child {
+  margin-bottom: 0;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-top: 6px;
+}
+
+.card {
+  background: var(--paper);
+  border: 2px solid var(--edge);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+}
+
+.card h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.card p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.pair {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(240px, 1.1fr);
+  margin-top: 16px;
+  align-items: stretch;
+}
+
+.pair + .pair {
+  margin-top: 18px;
+}
+
+.pair figure {
+  margin: 0;
+  background: var(--shot);
+  border: 2px solid var(--edge);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pair img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  max-height: 520px;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.icon-shot {
+  display: grid;
+  place-items: center;
+  background: #f3efe6;
+  min-height: 280px;
+}
+
+.icon-shot img {
+  width: min(280px, 70%);
+  height: auto;
+  object-fit: contain;
+}
+
+.flow {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.flow article {
+  background: var(--paper);
+  border: 2px solid var(--edge);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.flow strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.flow p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.theme-music {
+  --sky: #1f2228;
+  --ink: #f4efe6;
+  --muted: #b7b0a4;
+  --paper: #2a2e36;
+  --panel: #242830;
+  --edge: #0d0f12;
+  --go: #1db954;
+  --gold: #c8f542;
+  --shot: #152033;
+  background: #1f2228;
+  color: var(--ink);
+}
+
+.theme-music .sky {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.08) 0%, transparent 32%),
+    linear-gradient(#3a6ea5 0%, #1f4f7a 38%, #1f2228 38%);
+}
+
+.theme-music .links a.ghost {
+  color: #f4efe6;
+}
+
+.theme-machine {
+  --sky: #c9c2b4;
+  --ink: #1f1b16;
+  --muted: #5c564d;
+  --paper: #f7f1e4;
+  --panel: #fffaf0;
+  --edge: #2a2620;
+  --go: #5a6b73;
+  --gold: #c4a35a;
+  --shot: #ece6d8;
+  background: #b7b09f;
+}
+
+.theme-machine .sky {
+  background:
+    radial-gradient(circle at 12% -8%, #fff 0%, transparent 36%),
+    linear-gradient(#d8d1c2, #c9c2b4 42%, #b7c4a8 78%, #c9c2b4 92%);
+}
+
+@media (max-width: 720px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+
+  .pair img {
+    min-height: 220px;
+  }
+}

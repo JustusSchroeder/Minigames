@@ -66,6 +66,17 @@ h1 {
   color: var(--muted);
 }
 
+.lead-tight {
+  margin-bottom: 18px;
+}
+
+.section-title {
+  margin: 8px 0 8px;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  letter-spacing: -0.03em;
+}
+
 .lang {
   display: flex;
   border: 1px solid var(--line);

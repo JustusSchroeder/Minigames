@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpotifyBar — overview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../css/project.css" />
+  </head>
+  <body class="theme-music">
+    <div class="sky">
+      <div class="wrap">
+        <header class="hero">
+          <p class="kicker">Minigames · Mac app</p>
+          <h1>SpotifyBar</h1>
+          <p class="lead">
+            A menu bar extra next to Wi-Fi. You type a song, pick a result, and
+            Spotify plays it in the background. No Premium, no Spotify login,
+            no Developer account. Source is also on GitHub as MusicBar.
+          </p>
+          <p class="links">
+            <a href="https://github.com/JustusSchroeder/MusicBar">Source on GitHub</a>
+            <a class="ghost" href="../">Minigames hub</a>
+          </p>
+        </header>
+
+        <section>
+          <h2>The app</h2>
+          <div class="pair">
+            <div class="card">
+              <h3>Popular</h3>
+              <p>
+                Open the note icon in the menu bar. The popover looks like a
+                small Control Center card: now playing, play/pause, a search
+                field, then a Popular list. That list is Deezer’s current chart,
+                not a Spotify playlist, because Spotify’s Web API is locked for
+                Free accounts.
+              </p>
+            </div>
+            <figure>
+              <img
+                src="../assets/overview/spotifybar-popular.png"
+                alt="Menu bar popover showing the Popular chart, with Tame Impala at the top."
+              />
+            </figure>
+          </div>
+          <div class="pair">
+            <div class="card">
+              <h3>Search and play</h3>
+              <p>
+                Type a title or artist and press Search. Results stay in the
+                popover. Click one and Spotify starts that track. If Spotify was
+                quit, it launches hidden so you don’t get a window strobing in
+                front of you. Play/pause always talks to the Spotify Mac app,
+                not Apple Music.
+              </p>
+            </div>
+            <figure>
+              <img
+                src="../assets/overview/spotifybar-search.png"
+                alt="Search for Tame Impala with matching tracks and album covers."
+              />
+            </figure>
+          </div>
+        </section>
+
+        <section>
+          <h2>How it works</h2>
+          <div class="grid">
+            <div class="card">
+              <h3>Find the song</h3>
+              <p>
+                Search goes to Deezer first, then Apple’s iTunes search if
+                Deezer is empty. That gives title, artist, cover, and often an
+                ISRC. None of that is Spotify’s API.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Turn it into a Spotify URI</h3>
+              <p>
+                Playback needs <code>spotify:track:…</code>. The app races two
+                lookups: MusicBrainz (ISRC → Spotify url-rel) and a web search
+                on open.spotify.com. The first real track ID wins. It never
+                opens <code>spotify:search:</code>, which used to flash Spotify’s
+                window.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Talk to the Mac app</h3>
+              <p>
+                AppleScript <code>tell application id "com.spotify.client"</code>
+                plays the URI, reads now playing, and toggles pause. Covers for
+                the current track come from Spotify’s public oembed endpoint.
+                If Spotify isn’t running: <code>open -b com.spotify.client -j -g</code>.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Headset button</h3>
+              <p>
+                Play on the headphones only starts Spotify when nothing else is
+                using the speakers. If a browser or another player is already
+                making sound, the headset button is left alone.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>How I built it</h2>
+          <p>
+            First version was a Swift MenuBarExtra that logged into Spotify with
+            PKCE. Search came back 403 on a Free account, so the Web API went
+            out. The Mac app still accepts AppleScript, so that became the
+            player.
+          </p>
+          <p>
+            Catalog search, URI resolve, and artwork were the slow part: wrong
+            covers, unplayable rows, Music.app opening instead of Spotify, a
+            search URI that strobed the Spotify window. The path that stuck is
+            Deezer/iTunes for the list, MusicBrainz plus a web search for the
+            URI, URLSession for covers, and bundle-id AppleScript for play.
+          </p>
+          <p>
+            It’s a Swift package. <code>scripts/package-app.sh</code> builds a
+            signed <code>.app</code> (ad-hoc, codesign in <code>/tmp</code> so
+            resource forks don’t break the signature). The bundle id is
+            <code>com.justus.spotifybar</code>. macOS asks for Spotify and
+            System Events; Accessibility is optional for the headset path.
+          </p>
+        </section>
+
+        <section>
+          <h2>Use</h2>
+          <div class="flow">
+            <article>
+              <strong>Build</strong>
+              <p>In the MusicBar repo: <code>./scripts/package-app.sh</code>, then open <code>dist/SpotifyBar.app</code>.</p>
+            </article>
+            <article>
+              <strong>Play</strong>
+              <p>Click the note in the menu bar. Search, click a row, or use play/pause. Quit is the tiny link at the bottom.</p>
+            </article>
+            <article>
+              <strong>Login item</strong>
+              <p>Optional: System Settings → General → Login Items, add SpotifyBar so the icon is there after restart.</p>
+            </article>
+          </div>
+          <p class="note">
+            Audio still comes from Spotify. This is a remote for the installed
+            Mac app, not a streaming client of its own.
+          </p>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
