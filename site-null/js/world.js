@@ -181,6 +181,21 @@ function exitFace(walls) {
 }
 
 const WALL_EXITS = ["door", "fireexit", "elevator", "stair", "boiler", "garage", "cave", "manila"];
+const WAREHOUSE = 8;
+const WAREHOUSE_EXIT_SLOTS = [
+  [7, 6],
+  [0, 1],
+  [6, 7],
+  [1, 0],
+];
+
+function warehouseExitHere(seed, tx, tz) {
+  const wx = floorDiv(tx, WAREHOUSE);
+  const wz = floorDiv(tz, WAREHOUSE);
+  if (rand01(seed + 7, wx, wz) > 0.72) return false;
+  const slot = WAREHOUSE_EXIT_SLOTS[hashU32(seed + 91, wx, wz) % WAREHOUSE_EXIT_SLOTS.length];
+  return posMod(tx, WAREHOUSE) === slot[0] && posMod(tz, WAREHOUSE) === slot[1];
+}
 
 function placeExit(recipeId, seed, tx, tz, ctx) {
   if (ctx.solid || ctx.pillar) return null;
@@ -188,6 +203,10 @@ function placeExit(recipeId, seed, tx, tz, ctx) {
 
   if (ctx.layout === "maze" && ctx.manila && posMod(tx, REGION) === 2 && posMod(tz, REGION) === 2) {
     return { ...pickExit(recipeId, seed, tx, tz, "manila"), face: face || "n" };
+  }
+
+  if (ctx.layout === "warehouse" && face && !ctx.water && warehouseExitHere(seed, tx, tz)) {
+    return { ...pickExit(recipeId, seed, tx, tz, WALL_EXITS), face };
   }
 
   if (ctx.layout === "office" && !ctx.water && ctx.kind === "room" && rand01(seed + 91, tx, tz) < 0.007) {

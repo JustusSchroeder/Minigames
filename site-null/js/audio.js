@@ -236,6 +236,63 @@ export function createAudio() {
     tone(ctx.currentTime, "triangle", 70, vol * 0.7, 0.1);
   }
 
+  function lurkNear(dist) {
+    if (muted || !ensure()) return;
+    const vol = Math.max(0, 1 - dist / 14);
+    if (vol < 0.08) return;
+    burst(ctx.currentTime, 0.04 * vol, 0.28, "bandpass", 90 + Math.random() * 70, 1.4);
+    tone(ctx.currentTime, "sawtooth", 38 + Math.random() * 18, 0.02 * vol, 0.22);
+  }
+
+  function spot() {
+    if (muted || !ensure()) return;
+    const now = ctx.currentTime;
+    burst(now, 0.09, 0.18, "highpass", 1400);
+    tone(now, "square", 220, 0.04, 0.16);
+    tone(now, "sawtooth", 70, 0.035, 0.28);
+  }
+
+  function scream() {
+    if (muted || !ensure()) return;
+    const now = ctx.currentTime;
+    const prev = master.gain.value;
+    master.gain.cancelScheduledValues(now);
+    master.gain.setValueAtTime(Math.max(prev, 0.15), now);
+    master.gain.linearRampToValueAtTime(0.42, now + 0.04);
+    master.gain.exponentialRampToValueAtTime(0.15, now + 1.35);
+
+    burst(now, 0.55, 0.12, "lowpass", 180);
+    burst(now, 0.38, 0.7, "bandpass", 1800, 0.55);
+    burst(now + 0.05, 0.28, 0.55, "highpass", 2400);
+
+    const shriek = ctx.createOscillator();
+    const sg = ctx.createGain();
+    shriek.type = "sawtooth";
+    shriek.frequency.setValueAtTime(1600, now);
+    shriek.frequency.exponentialRampToValueAtTime(240, now + 0.85);
+    sg.gain.setValueAtTime(0.22, now);
+    sg.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+    shriek.connect(sg);
+    sg.connect(master);
+    shriek.start(now);
+    shriek.stop(now + 0.95);
+
+    const shriek2 = ctx.createOscillator();
+    const sg2 = ctx.createGain();
+    shriek2.type = "square";
+    shriek2.frequency.setValueAtTime(980, now);
+    shriek2.frequency.exponentialRampToValueAtTime(110, now + 0.7);
+    sg2.gain.setValueAtTime(0.12, now);
+    sg2.gain.exponentialRampToValueAtTime(0.001, now + 0.72);
+    shriek2.connect(sg2);
+    sg2.connect(master);
+    shriek2.start(now);
+    shriek2.stop(now + 0.75);
+
+    tone(now, "sine", 42, 0.18, 0.45);
+    tone(now + 0.08, "sawtooth", 55, 0.1, 0.5);
+  }
+
   function guestNear(dist) {
     if (muted || !ensure()) return;
     const vol = Math.max(0, 1 - dist / 12);
@@ -312,5 +369,8 @@ export function createAudio() {
     wake,
     hunt,
     guestNear,
+    lurkNear,
+    spot,
+    scream,
   };
 }

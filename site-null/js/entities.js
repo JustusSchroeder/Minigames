@@ -61,8 +61,44 @@ export function createPortrait(recipeId, seed, player) {
   };
 }
 
+function ambushSpot(recipeId, seed, player, salt = 0) {
+  const { tx, tz } = worldToTile(player.x, player.z);
+  let fallback = null;
+  for (let i = 0; i < 80; i++) {
+    const behind = i % 3 !== 2;
+    const jitter = (rand01(seed, i + salt, 17) - 0.5) * (behind ? 1.15 : Math.PI * 2);
+    const ang = behind ? player.yaw + jitter : rand01(seed, i + salt, 3) * Math.PI * 2;
+    const dist = (behind ? 5 : 8) + rand01(seed, i + 9 + salt, 5) * (behind ? 7 : 9);
+    const ox = tx + Math.round(Math.sin(ang) * dist);
+    const oz = tz + Math.round(Math.cos(ang) * dist);
+    const info = cellInfo(recipeId, seed, ox, oz);
+    if (info.pillar || info.water || info.solid || info.opens < 1) continue;
+    const p = tileCenter(ox, oz);
+    if (Math.hypot(p.x - player.x, p.z - player.z) < 6.2) continue;
+    if (!fallback) fallback = p;
+    if (!losClear(recipeId, seed, player.x, player.z, p.x, p.z)) return p;
+  }
+  return fallback || farOpen(recipeId, seed, player, 8, 16);
+}
+
+export function createLurker(recipeId, seed, player) {
+  const p = ambushSpot(recipeId, seed, player, 2);
+  return {
+    kind: "lurker",
+    x: p.x,
+    z: p.z,
+    y: 0,
+    yaw: Math.atan2(player.x - p.x, player.z - p.z),
+    live: true,
+    phase: "lurk",
+    freeze: 0,
+    lurkT: 0,
+    salt: 3,
+  };
+}
+
 export function spawnEntities(recipeId, seed, player) {
-  const list = [createChair(recipeId, seed, player)];
+  const list = [createChair(recipeId, seed, player), createLurker(recipeId, seed, player)];
   if (recipeId === "lobby") return list;
   const guest = createGuest(recipeId, seed, player);
   if (guest.live) list.push(guest);
@@ -152,6 +188,57 @@ export function stepWhisper(ent, recipeId, seed, player, dt) {
     return "near";
   }
   return null;
+}
+
+export function stepLurker(ent, recipeId, seed, player, lookingAt, eyesOpen, dt) {
+  if (!ent.live) return null;
+  const dist = Math.hypot(ent.x - player.x, ent.z - player.z);
+  ent.yaw = Math.atan2(player.x - ent.x, player.z - ent.z);
+
+  if (ent.phase === "charging") {
+    if (dist < 1.35) {
+      ent.live = false;
+      return "catch";
+    }
+    chase(ent, recipeId, seed, player, 8.2, dt, 0.28);
+    return "hunt";
+  }
+
+  if (ent.phase === "glimpsed") {
+    ent.freeze -= dt;
+    if (ent.freeze <= 0) {
+      ent.phase = "charging";
+      return "lunge";
+    }
+    return null;
+  }
+
+  if (dist < 1.35) {
+    ent.live = false;
+    return "catch";
+  }
+
+  if (lookingAt && eyesOpen) {
+    ent.phase = "glimpsed";
+    ent.freeze = 0.28 + Math.random() * 0.22;
+    return "spot";
+  }
+
+  ent.lurkT += dt;
+  if (ent.lurkT > 3.6 || dist > 20) {
+    const next = ambushSpot(recipeId, seed, player, ent.salt++);
+    if (next && !losClear(recipeId, seed, player.x, player.z, next.x, next.z)) {
+      ent.x = next.x;
+      ent.z = next.z;
+      ent.lurkT = 0;
+    } else if (ent.lurkT > 6) {
+      const far = farOpen(recipeId, seed, player, 7, 14);
+      ent.x = far.x;
+      ent.z = far.z;
+      ent.lurkT = 0;
+    }
+  }
+  return dist < 12 ? "near" : null;
 }
 
 export function stepPortrait(ent, recipeId, seed, player, lookingAt, eyesOpen, dt) {

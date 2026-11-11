@@ -22,7 +22,7 @@ const I18N = {
     meridianTitle: "Meridian Front",
     meridianBlurb: "Late Cretaceous grand strategy. Command dinosaur packs on the European map.",
     nullTitle: "Site Null",
-    nullBlurb: "Endless generated backrooms. Walk, blink, and do not look away.",
+    nullBlurb: "Endless generated backrooms. Something waits around the corner. Blink, and do not look away.",
     langLabel: "Language",
   },
   de: {
@@ -46,7 +46,7 @@ const I18N = {
     meridianTitle: "Meridian Front",
     meridianBlurb: "Grand Strategy in der späten Kreide. Führe Dinosaurier-Rudel auf der Europakarte.",
     nullTitle: "Site Null",
-    nullBlurb: "Endlose generierte Backrooms. Lauf, blinzle, und schau nicht weg.",
+    nullBlurb: "Endlose generierte Backrooms. Etwas wartet hinter der Ecke. Blinzle, und schau nicht weg.",
     langLabel: "Sprache",
   },
 };

@@ -243,7 +243,6 @@ export function createView3D(canvas) {
     outlet: new THREE.MeshStandardMaterial({ color: 0xc8b888, roughness: 0.5 }),
     deadLight: new THREE.MeshStandardMaterial({ color: 0x3a3830, roughness: 0.7, emissive: 0x000000 }),
     harshLight: new THREE.MeshStandardMaterial({ color: 0xfff6d0, emissive: 0xffe8a0, emissiveIntensity: 2.4 }),
-    guest: new THREE.MeshStandardMaterial({ color: 0xc8c0b4, roughness: 0.5 }),
     mannequin: new THREE.MeshStandardMaterial({ color: 0xd4c8b8, roughness: 0.35 }),
     shadow: new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 1, transparent: true, opacity: 0.82 }),
     hunter: new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: 0.7 }),
@@ -308,8 +307,39 @@ export function createView3D(canvas) {
     return g;
   }
 
-  const guestMesh = humanoid(mats.guest);
+  const guestHeight = 2.15;
+  const guestTex = new THREE.TextureLoader().load("assets/monster.png");
+  guestTex.colorSpace = THREE.SRGBColorSpace;
+  const guestMesh = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: guestTex,
+      transparent: true,
+      alphaTest: 0.12,
+      depthTest: true,
+      depthWrite: false,
+    })
+  );
+  guestMesh.scale.set(guestHeight * (528 / 831), guestHeight, 1);
   scene.add(guestMesh);
+
+  const lurkerAspect = 958 / 1742;
+  const lurkerTex = new THREE.TextureLoader().load("assets/lurker.png");
+  lurkerTex.colorSpace = THREE.SRGBColorSpace;
+  const lurkerMat = new THREE.SpriteMaterial({
+    map: lurkerTex,
+    transparent: true,
+    alphaTest: 0.18,
+    depthTest: true,
+    depthWrite: true,
+    fog: true,
+  });
+  const lurkerMesh = new THREE.Sprite(lurkerMat);
+  lurkerMesh.visible = false;
+  scene.add(lurkerMesh);
+
+  function lurkerHeight() {
+    return Math.min(getRecipe(recipeId).ceiling * 0.94, 3.15);
+  }
   const mannequinMesh = humanoid(mats.mannequin, 1.2);
   scene.add(mannequinMesh);
   const whisperMesh = humanoid(mats.shadow, 1.45);
@@ -646,6 +676,11 @@ export function createView3D(canvas) {
     camera.rotation.x = pitch;
   }
 
+  function setFov(fov) {
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+  }
+
   function setFlash(on, dim = 0) {
     flash.intensity = on ? 24 * (1 - dim * 0.7) : 0;
   }
@@ -664,8 +699,17 @@ export function createView3D(canvas) {
     if (chair) chairMesh.position.set(chair.x, 0, chair.z);
     guestMesh.visible = !!(guest && guest.live);
     if (guest && guest.live) {
-      guestMesh.position.set(guest.x, 0, guest.z);
-      if (guest.yaw != null) guestMesh.rotation.y = guest.yaw;
+      guestMesh.position.set(guest.x, guestHeight * 0.5, guest.z);
+    }
+    const lurker = ents.find((e) => e.kind === "lurker");
+    lurkerMesh.visible = !!(lurker && lurker.live);
+    if (lurker && lurker.live) {
+      const h = lurkerHeight();
+      const w = h * lurkerAspect;
+      const t = performance.now() * 0.001;
+      const twitch = lurker.phase === "charging" ? 0.045 : lurker.phase === "glimpsed" ? 0.02 : 0.008;
+      lurkerMesh.position.set(lurker.x, h * 0.5, lurker.z);
+      lurkerMesh.scale.set(w * (1 + Math.sin(t * 17) * twitch), h * (1 + Math.sin(t * 21) * twitch * 0.6), 1);
     }
     mannequinMesh.visible = !!(mannequin && mannequin.live);
     if (mannequin && mannequin.live) {
@@ -712,6 +756,7 @@ export function createView3D(canvas) {
     applyRecipe,
     syncChunks,
     setCamera,
+    setFov,
     setFlash,
     setBlinkDim,
     syncProps,

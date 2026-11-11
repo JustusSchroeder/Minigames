@@ -14,6 +14,8 @@ const ui = {
   place: document.getElementById("place"),
   prompt: document.getElementById("prompt"),
   lookHint: document.getElementById("look-hint"),
+  jumpscare: document.getElementById("jumpscare"),
+  deathVeil: document.getElementById("death-veil"),
   btnEnter: document.getElementById("btn-enter"),
   btnResume: document.getElementById("btn-resume"),
   btnFull: document.getElementById("btn-full"),

@@ -3,6 +3,7 @@ import {
   spawnEntities,
   stepChair,
   stepGuest,
+  stepLurker,
   stepMannequin,
   stepPortrait,
   stepWhisper,
@@ -73,6 +74,7 @@ export function createGame(ui) {
   let blinkT = 0;
   let blinkHold = 0.08;
   let blinkAmt = 0;
+  let scare = null;
 
   view.applyRecipe(state.recipeId, state.seed);
   view.setCamera(state.x, state.y, state.z, state.yaw, state.pitch);
@@ -224,11 +226,91 @@ export function createGame(ui) {
     }
   }
 
+  function startJumpscare() {
+    if (scare) return;
+    scare = { t: 0, black: false };
+    audio.scream();
+    blinkPhase = "open";
+    blinkT = 0;
+    applyLids(0);
+    if (ui.prompt) ui.prompt.hidden = true;
+    if (ui.jumpscare) {
+      ui.jumpscare.hidden = false;
+      ui.jumpscare.classList.remove("on", "fade");
+      void ui.jumpscare.offsetWidth;
+      ui.jumpscare.classList.add("on");
+    }
+    if (ui.deathVeil) {
+      ui.deathVeil.hidden = true;
+      ui.deathVeil.classList.remove("on");
+    }
+    view.setFov(96);
+  }
+
+  function respawnHere() {
+    const spawn = spawnPoint(state.recipeId, state.seed);
+    const free = unstuck(state.recipeId, state.seed, spawn.x, spawn.z);
+    state.x = free.x;
+    state.z = free.z;
+    state.yaw = spawn.yaw ?? 0;
+    state.pitch = 0.16;
+    state.blink = 1;
+    blinkPhase = "open";
+    blinkT = 0;
+    applyLids(0);
+    ents = spawnEntities(state.recipeId, state.seed, state);
+    guestSeen = false;
+    pendingExit = null;
+    spawnGrace = 2.5;
+    view.setFov(74);
+    view.applyRecipe(state.recipeId, state.seed);
+    view.syncChunks(state.x, state.z);
+    persist();
+  }
+
+  function stepScare(dt) {
+    scare.t += dt;
+    const punch = Math.max(0, 1 - scare.t / 0.55);
+    view.setCamera(
+      state.x,
+      EYE + punch * 0.1,
+      state.z,
+      state.yaw + (Math.random() - 0.5) * 0.2 * punch,
+      state.pitch + (Math.random() - 0.5) * 0.16 * punch
+    );
+    view.setFlash(false, 0);
+    view.syncChunks(state.x, state.z);
+    view.syncProps(ents);
+    if (scare.t > 0.7 && !scare.black) {
+      scare.black = true;
+      if (ui.jumpscare) ui.jumpscare.classList.add("fade");
+      if (ui.deathVeil) {
+        ui.deathVeil.hidden = false;
+        ui.deathVeil.classList.add("on");
+      }
+      view.setFov(74);
+    }
+    if (scare.t > 2.05) {
+      respawnHere();
+      if (ui.jumpscare) {
+        ui.jumpscare.hidden = true;
+        ui.jumpscare.classList.remove("on", "fade");
+      }
+      if (ui.deathVeil) {
+        ui.deathVeil.hidden = true;
+        ui.deathVeil.classList.remove("on");
+      }
+      scare = null;
+    }
+  }
+
   function tick(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
-    if (playing) {
+    if (playing && scare) {
+      stepScare(dt);
+    } else if (playing) {
       state.blink -= dt / (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 3.6 : 4.5);
       if (state.blink <= 0) blinkNow();
       ui.blinkFill.style.transform = `scaleX(${Math.max(0, Math.min(1, state.blink))})`;
@@ -299,11 +381,24 @@ export function createGame(ui) {
           }
           const ev = stepGuest(ent, state.recipeId, state.seed, state, !(vis && eyesOpen), dt);
           if (ev === "catch") {
-            blinkNow(0.55);
-            audio.scrape();
-            ent.live = false;
-            guestSeen = false;
+            if (spawnGrace <= 0) startJumpscare();
+            else ent.live = true;
           } else if (ev === "near" && Math.random() < dt * 1.4) audio.guestNear(dist);
+        } else if (ent.kind === "lurker" && ent.live) {
+          const vis = seen(ent.x, 1.55, ent.z);
+          const dist = Math.hypot(ent.x - state.x, ent.z - state.z);
+          const ev = stepLurker(ent, state.recipeId, state.seed, state, vis, eyesOpen, dt);
+          if (ev === "spot") audio.spot();
+          if (ev === "lunge") audio.howl();
+          if (ev === "hunt" && Math.random() < dt * 2.6) audio.lurkNear(dist);
+          if (ev === "near" && Math.random() < dt * 0.55) audio.lurkNear(dist);
+          if (ev === "catch") {
+            if (spawnGrace <= 0) startJumpscare();
+            else {
+              ent.live = true;
+              ent.phase = "lurk";
+            }
+          }
         } else if (ent.kind === "mannequin" && ent.live) {
           const vis = seen(ent.x, 1.2, ent.z);
           const dist = Math.hypot(ent.x - state.x, ent.z - state.z);
@@ -364,14 +459,14 @@ export function createGame(ui) {
     const on = document.pointerLockElement === ui.canvas;
     if (on) hadLock = true;
     setLocked(on);
-    if (playing && !on && hadLock && ui.pause.hidden) {
+    if (playing && !on && hadLock && ui.pause.hidden && !scare) {
       hadLock = false;
       pause();
     }
   });
 
   ui.canvas.addEventListener("mousemove", (evt) => {
-    if (!locked) return;
+    if (!locked || scare) return;
     state.yaw -= evt.movementX * 0.0022;
     state.pitch -= evt.movementY * 0.002;
     state.pitch = Math.max(-1.2, Math.min(1.1, state.pitch));
@@ -382,9 +477,9 @@ export function createGame(ui) {
     if (evt.code === "KeyF") state.flash = !state.flash;
     if (evt.code === "Space") {
       evt.preventDefault();
-      if (playing) blinkNow();
+      if (playing && !scare) blinkNow();
     }
-    if (evt.code === "Escape" && playing) pause();
+    if (evt.code === "Escape" && playing && !scare) pause();
     if ((evt.code === "Enter" || evt.code === "NumpadEnter") && playing && pendingExit && ui.pause.hidden) {
       evt.preventDefault();
       const dest = pendingExit.to;
