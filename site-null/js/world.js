@@ -1,4 +1,19 @@
 import { getRecipe, pickExit } from "./levels.js";
+import {
+  poolCell,
+  poolEdgeEast,
+  poolEdgeNorth,
+  roomProfile,
+  roomWallBlocked,
+  POOL_MACRO,
+  POOL_PILLAR_R,
+  spiralLayout,
+  onSpiralStep,
+  nearbyProfile,
+  roundedRectSDF,
+  sdfWater,
+  oculusRim,
+} from "./poolrooms.js";
 
 export const TILE = 2.4;
 export const CHUNK = 8;
@@ -58,20 +73,6 @@ function regionGate(seed, rx, rz, extra) {
     w: mazeOpenEast(seed + 1, rx - 1, rz, extra + 0.38),
     s: mazeOpenNorth(seed + 1, rx, rz - 1, extra + 0.38),
   };
-}
-
-function poolEdgeEast(seed, x, z, extra) {
-  const size = 5;
-  if (posMod(x, size) !== size - 1) return false;
-  const open = mazeOpenEast(seed + 3, floorDiv(x, size), floorDiv(z, size), extra + 0.2);
-  return !(posMod(z, size) === 2 && open);
-}
-
-function poolEdgeNorth(seed, x, z, extra) {
-  const size = 5;
-  if (posMod(z, size) !== size - 1) return false;
-  const open = mazeOpenNorth(seed + 3, floorDiv(x, size), floorDiv(z, size), extra + 0.2);
-  return !(posMod(x, size) === 2 && open);
 }
 
 function warehouseEdgeEast(seed, x, z, extra) {
@@ -284,23 +285,44 @@ function propAt(seed, tx, tz, info, layout) {
   return null;
 }
 
+const CELL_CACHE_MAX = 4096;
+const cellCache = new Map();
+
 export function cellInfo(recipeId, seed, tx, tz) {
+  const key = `${recipeId}:${seed}:${tx}:${tz}`;
+  const cached = cellCache.get(key);
+  if (cached) {
+    cellCache.delete(key);
+    cellCache.set(key, cached);
+    return cached;
+  }
+  const info = computeCellInfo(recipeId, seed, tx, tz);
+  cellCache.set(key, info);
+  if (cellCache.size > CELL_CACHE_MAX) {
+    cellCache.delete(cellCache.keys().next().value);
+  }
+  return info;
+}
+
+function computeCellInfo(recipeId, seed, tx, tz) {
   const recipe = getRecipe(recipeId);
   const layout = recipe.layout;
   const kind = regionKind(seed, tx, tz);
-  const solid = layout === "caves" && caveSolid(seed, tx, tz);
-  const walls = solid ? { n: true, e: true, s: true, w: true } : wallsAt(recipe, seed, tx, tz);
+  const pool = layout === "pools" ? poolCell(seed, recipe.extra, tx, tz) : null;
+  const solid = (layout === "caves" && caveSolid(seed, tx, tz)) || !!(pool && pool.solid);
+  const walls =
+    layout === "caves" && solid ? { n: true, e: true, s: true, w: true } : wallsAt(recipe, seed, tx, tz);
 
   let floor = "carpet";
   let pillar = false;
   let water = false;
+  let exposed = false;
 
   if (layout === "pools") {
-    const lx = posMod(tx, 5);
-    const lz = posMod(tz, 5);
-    water = lx > 0 && lx < 4 && lz > 0 && lz < 4;
-    floor = water ? "water" : "tile";
-    pillar = water && lx === 2 && lz === 2 && rand01(seed, tx, tz) < 0.45;
+    water = pool.water;
+    pillar = pool.pillar;
+    floor = pool.floor;
+    exposed = pool.exposed;
   } else if (layout === "warehouse") {
     floor = "concrete";
     const lx = posMod(tx, 3);
@@ -329,10 +351,44 @@ export function cellInfo(recipeId, seed, tx, tz) {
 
   if (manila && layout === "maze") floor = "wood";
 
-  const light = lightMode(seed, tx, tz, kind, layout);
-  const hole = !water && !solid && light !== "harsh" && rand01(seed, tx - 17, tz + 55) < (layout === "maze" ? 0.008 : 0.014);
-  const info = { floor, water, pillar, door, exit, walls, light, hole, kind, solid, manila, opens, curved: !!recipe.curved };
-  info.prop = propAt(seed, tx, tz, info, layout);
+  let light = lightMode(seed, tx, tz, kind, layout);
+  if (pool) {
+    if (pool.light === "dark" || pool.light === "dead" || pool.light === "dim") light = pool.light;
+    else if (light === "harsh" || light === "dead") light = "normal";
+  }
+  const hole =
+    layout !== "pools" &&
+    !water &&
+    !solid &&
+    light !== "harsh" &&
+    rand01(seed, tx - 17, tz + 55) < (layout === "maze" ? 0.008 : 0.014);
+  const info = {
+    floor,
+    water,
+    pillar,
+    door,
+    exit,
+    walls,
+    light,
+    hole,
+    kind,
+    solid,
+    manila,
+    opens,
+    exposed,
+    biome: pool?.biome || null,
+    ceiling: pool?.ceiling || recipe.ceiling,
+    gallery: !!(pool && pool.gallery),
+    galleryCol: !!(pool && pool.galleryCol),
+    feature: pool?.feature || null,
+    featureFace: pool?.featureFace || null,
+    featureAxis: pool?.featureAxis || null,
+    blockR: pool?.blockR || 0,
+    corridor: !!(pool && pool.corridor),
+    spiral: !!(pool && pool.spiral),
+    curved: !!recipe.curved,
+  };
+  info.prop = pool?.prop || propAt(seed, tx, tz, info, layout);
   return info;
 }
 
@@ -351,6 +407,7 @@ function blockingProp(prop) {
 function spawnable(recipeId, seed, tx, tz) {
   const info = cellInfo(recipeId, seed, tx, tz);
   if (info.solid || info.water || info.pillar || info.door || info.exit) return null;
+  if (info.blockR || info.feature === "stairs" || info.feature === "chute") return null;
   if (info.opens < 2) return null;
   if (blockingProp(info.prop)) return null;
   const p = tileCenter(tx, tz);
@@ -409,7 +466,27 @@ function distPointSeg(px, pz, ax, az, bx, bz) {
   return Math.hypot(px - x, pz - z);
 }
 
+function nearbyRoomHit(recipe, seed, px, pz, radius) {
+  const extra = recipe.extra;
+  const mx = Math.floor(px / (TILE * POOL_MACRO));
+  const mz = Math.floor(pz / (TILE * POOL_MACRO));
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      const prof = roomProfile(seed, extra, mx + dx, mz + dz);
+      if (roomWallBlocked(px, pz, radius, prof)) return true;
+      const sp = spiralLayout(prof);
+      if (sp && Math.hypot(px - sp.midX, pz - sp.midZ) < radius + sp.pillarR) return true;
+      for (const hall of prof.halls || []) {
+        if (roomWallBlocked(px, pz, radius, hall)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function blocked(recipeId, seed, px, pz, radius) {
+  const recipe = getRecipe(recipeId);
+  const pools = recipe.layout === "pools";
   const pad = radius + WALL_HALF;
   const minTx = Math.floor((px - pad) / TILE) - 1;
   const maxTx = Math.floor((px + pad) / TILE) + 1;
@@ -420,19 +497,28 @@ function blocked(recipeId, seed, px, pz, radius) {
       const info = cellInfo(recipeId, seed, tx, tz);
       if (info.solid) {
         const c = tileCenter(tx, tz);
-        if (Math.abs(px - c.x) < TILE / 2 - 0.02 && Math.abs(pz - c.z) < TILE / 2 - 0.02) return true;
+        const hx = pools ? TILE / 2 + radius - 0.04 : TILE / 2 - 0.02;
+        if (Math.abs(px - c.x) < hx && Math.abs(pz - c.z) < hx) return true;
       }
-      const x0 = tx * TILE;
-      const z0 = tz * TILE;
-      const x1 = x0 + TILE;
-      const z1 = z0 + TILE;
-      if (info.walls.w && distPointSeg(px, pz, x0, z0, x0, z1) < pad) return true;
-      if (info.walls.e && distPointSeg(px, pz, x1, z0, x1, z1) < pad) return true;
-      if (info.walls.s && distPointSeg(px, pz, x0, z0, x1, z0) < pad) return true;
-      if (info.walls.n && distPointSeg(px, pz, x0, z1, x1, z1) < pad) return true;
+      const useSegs = !pools;
+      if (useSegs) {
+        const x0 = tx * TILE;
+        const z0 = tz * TILE;
+        const x1 = x0 + TILE;
+        const z1 = z0 + TILE;
+        if (info.walls.w && distPointSeg(px, pz, x0, z0, x0, z1) < pad) return true;
+        if (info.walls.e && distPointSeg(px, pz, x1, z0, x1, z1) < pad) return true;
+        if (info.walls.s && distPointSeg(px, pz, x0, z0, x1, z0) < pad) return true;
+        if (info.walls.n && distPointSeg(px, pz, x0, z1, x1, z1) < pad) return true;
+      }
       if (info.pillar) {
         const c = tileCenter(tx, tz);
-        if (Math.hypot(px - c.x, pz - c.z) < radius + 0.2) return true;
+        const pr = getRecipe(recipeId).layout === "pools" ? POOL_PILLAR_R : 0.2;
+        if (Math.hypot(px - c.x, pz - c.z) < radius + pr) return true;
+      }
+      if (info.blockR) {
+        const c = tileCenter(tx, tz);
+        if (Math.hypot(px - c.x, pz - c.z) < radius + info.blockR) return true;
       }
       if (info.prop === "crate" || info.prop === "box" || info.prop === "cooler" || info.prop === "table") {
         const c = tileCenter(tx, tz);
@@ -442,8 +528,13 @@ function blocked(recipeId, seed, px, pz, radius) {
         const c = tileCenter(tx, tz);
         if (Math.hypot(px - c.x, pz - c.z) < radius + 0.12) return true;
       }
+      if (info.feature === "chute") {
+        const pose = facePose(info.featureFace || "n", tileCenter(tx, tz).x, tileCenter(tx, tz).z);
+        if (Math.hypot(px - pose.x, pz - pose.z) < radius + 0.42) return true;
+      }
     }
   }
+  if (pools && nearbyRoomHit(recipe, seed, px, pz, radius)) return true;
   return false;
 }
 
@@ -456,6 +547,212 @@ export function moveBody(recipeId, seed, x, z, dx, dz, radius = RADIUS) {
   return { x: nx, z: nz };
 }
 
+function facePose(face, cxw, czw) {
+  const inset = TILE / 2 - 0.13;
+  if (face === "n") return { x: cxw, z: czw + inset, yaw: 0 };
+  if (face === "s") return { x: cxw, z: czw - inset, yaw: Math.PI };
+  if (face === "e") return { x: cxw + inset, z: czw, yaw: -Math.PI / 2 };
+  if (face === "w") return { x: cxw - inset, z: czw, yaw: Math.PI / 2 };
+  return { x: cxw, z: czw, yaw: 0 };
+}
+
+function worldToLocal(px, pz, ox, oz, yaw) {
+  const dx = px - ox;
+  const dz = pz - oz;
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  return { lx: dx * cos - dz * sin, lz: dx * sin + dz * cos };
+}
+
+function inBox(lx, lz, cx, cz, hx, hz, pad = 0) {
+  return Math.abs(lx - cx) < hx + pad && Math.abs(lz - cz) < hz + pad;
+}
+
+function eachWallStair(recipeId, seed, x, z, fn) {
+  const { tx, tz } = worldToTile(x, z);
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      const info = cellInfo(recipeId, seed, tx + dx, tz + dz);
+      if (info.feature !== "stairs") continue;
+      const c = tileCenter(tx + dx, tz + dz);
+      const pose = facePose(info.featureFace || "n", c.x, c.z);
+      const local = worldToLocal(x, z, pose.x, pose.z, pose.yaw);
+      fn(info, local);
+    }
+  }
+}
+
+function gatherFloors(recipeId, seed, x, z, maxY, pad = 0.06) {
+  let y = 0;
+  const consider = (top) => {
+    if (top <= maxY + 0.001) y = Math.max(y, top);
+  };
+  const recipe = getRecipe(recipeId);
+  if (recipe.layout === "pools") {
+    const prof = nearbyProfile(seed, recipe.extra, x, z);
+    const sp = spiralLayout(prof);
+    if (sp) {
+      for (const s of sp.steps) {
+        if (onSpiralStep(x, z, s, pad)) consider(s.top);
+      }
+    }
+    const water = prof.water;
+    if (water) {
+      for (const isl of water.islands || []) {
+        if (roundedRectSDF(x, z, isl.X0, isl.Z0, isl.X1, isl.Z1, isl.R) < pad) consider(0.12);
+      }
+      const sdf = sdfWater(x, z, water);
+      if (sdf > -0.2 && sdf < 0.1 + pad) consider(0.51);
+    }
+  }
+  eachWallStair(recipeId, seed, x, z, (_info, local) => {
+    for (let i = 0; i < 8; i++) {
+      const lz = -0.05 - i * 0.12;
+      if (inBox(local.lx, local.lz, 0, lz, 0.525, 0.09, pad)) consider(0.14 + i * 0.2);
+    }
+  });
+  return y;
+}
+
+function roomCeilingAt(recipeId, seed, x, z) {
+  const recipe = getRecipe(recipeId);
+  if (recipe.layout !== "pools") return recipe.ceiling - 0.05;
+  const prof = nearbyProfile(seed, recipe.extra, x, z);
+  if (!prof) return recipe.ceiling - 0.05;
+  if (prof.vault) {
+    const midX = (prof.X0 + prof.X1) * 0.5;
+    const midZ = (prof.Z0 + prof.Z1) * 0.5;
+    const rad = Math.min(prof.X1 - prof.X0, prof.Z1 - prof.Z0) * 0.42;
+    const domeY = prof.h - rad * 0.12;
+    const horiz = Math.hypot(x - midX, z - midZ);
+    if (horiz < rad - 0.25) {
+      if (prof.oculus) {
+        const rim = oculusRim(rad, domeY);
+        if (horiz < rim.r - 0.06) return rim.y - 0.02;
+      }
+      return domeY + Math.sqrt(Math.max(0.04, rad * rad - horiz * horiz)) - 0.14;
+    }
+  }
+  return prof.h - 0.08;
+}
+
+export function sampleFloor(recipeId, seed, x, z, feetY = 0, reach = 0.08) {
+  return gatherFloors(recipeId, seed, x, z, feetY + reach);
+}
+
+export function groundAt(recipeId, seed, x, z) {
+  return gatherFloors(recipeId, seed, x, z, 24, 0.14);
+}
+
+export function sampleCeiling(recipeId, seed, x, z, feetY = 0) {
+  let y = roomCeilingAt(recipeId, seed, x, z);
+  const recipe = getRecipe(recipeId);
+  if (recipe.layout === "pools") {
+    const prof = nearbyProfile(seed, recipe.extra, x, z);
+    const sp = spiralLayout(prof);
+    if (sp) {
+      for (const s of sp.steps) {
+        if (!onSpiralStep(x, z, s, 0.08)) continue;
+        const bot = s.y - s.thick * 0.5;
+        if (bot > feetY + 0.18) y = Math.min(y, bot);
+      }
+    }
+  }
+  eachWallStair(recipeId, seed, x, z, (_info, local) => {
+    for (let i = 0; i < 8; i++) {
+      const lz = -0.05 - i * 0.12;
+      if (!inBox(local.lx, local.lz, 0, lz, 0.525, 0.09, 0.06)) continue;
+      const bot = 0.1 + i * 0.2 - 0.04;
+      if (bot > feetY + 0.18) y = Math.min(y, bot);
+    }
+  });
+  return y;
+}
+
+function solidsAtHeight(recipeId, seed, px, pz, feetY, radius, head = 1.72, stepUp = 0.52) {
+  const bodyBot = feetY + 0.03;
+  const bodyTop = feetY + head;
+  const recipe = getRecipe(recipeId);
+  if (recipe.layout === "pools") {
+    const prof = nearbyProfile(seed, recipe.extra, px, pz);
+    const sp = spiralLayout(prof);
+    if (sp) {
+      for (const s of sp.steps) {
+        if (onSpiralStep(px, pz, s, radius + 0.02)) {
+          const bot = s.y - s.thick * 0.5;
+          const top = s.top;
+          if (!(bodyTop <= bot || bodyBot >= top)) {
+            if (!(top <= feetY + stepUp && top >= feetY - 0.1)) return true;
+          }
+        }
+        const rx = s.x + Math.cos(s.ang) * (s.hw + 0.04);
+        const rz = s.z + Math.sin(s.ang) * (s.hw + 0.04);
+        if (Math.hypot(px - rx, pz - rz) < radius + 0.04) {
+          if (bodyTop > s.top && bodyBot < s.top + 0.88) return true;
+        }
+      }
+    }
+    const water = prof.water;
+    if (water && feetY < 0.46) {
+      const sdf = sdfWater(px, pz, water);
+      if (sdf > -0.18 && sdf < 0.08 + radius && bodyTop > 0.02) return true;
+    }
+  }
+  let hit = false;
+  eachWallStair(recipeId, seed, px, pz, (info, local) => {
+    if (hit) return;
+    const h = info.ceiling || 2.2;
+    if (inBox(local.lx, local.lz, 0, 0.08, 0.6, 0.06, radius) && bodyBot < h && bodyTop > 0) {
+      hit = true;
+      return;
+    }
+    for (const side of [-0.52, 0.52]) {
+      if (inBox(local.lx, local.lz, side, -0.4, 0.025, 0.525, radius) && bodyBot < 1.72 && bodyTop > 0.08) {
+        hit = true;
+        return;
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const top = 0.14 + i * 0.2;
+      const bot = top - 0.08;
+      const lz = -0.05 - i * 0.12;
+      if (!inBox(local.lx, local.lz, 0, lz, 0.525, 0.09, radius)) continue;
+      if (bodyTop <= bot || bodyBot >= top) continue;
+      if (top <= feetY + stepUp && top >= feetY - 0.1) continue;
+      hit = true;
+      return;
+    }
+  });
+  return hit;
+}
+
+export function moveOnFoot(recipeId, seed, x, z, feetY, dx, dz, radius = RADIUS, stepUp = 0.55) {
+  let nx = x + dx;
+  let nz = z;
+  if (blocked(recipeId, seed, nx, nz, radius) || solidsAtHeight(recipeId, seed, nx, nz, feetY, radius, 1.72, stepUp)) nx = x;
+  nz = z + dz;
+  if (blocked(recipeId, seed, nx, nz, radius) || solidsAtHeight(recipeId, seed, nx, nz, feetY, radius, 1.72, stepUp)) nz = z;
+  const floor = sampleFloor(recipeId, seed, nx, nz, feetY, stepUp);
+  if (floor > feetY + stepUp) return { x, z, floor: sampleFloor(recipeId, seed, x, z, feetY, stepUp) };
+  return { x: nx, z: nz, floor };
+}
+
+export function findSpiral(seed, extra = 0.22, range = 28) {
+  for (let r = 0; r <= range; r++) {
+    for (let mx = -r; mx <= r; mx++) {
+      for (let mz = -r; mz <= r; mz++) {
+        if (Math.max(Math.abs(mx), Math.abs(mz)) !== r) continue;
+        const p = roomProfile(seed, extra, mx, mz);
+        if (!p.spiral) continue;
+        const sp = spiralLayout(p);
+        const step = sp.steps[0];
+        return { x: step.x, z: step.z, midX: sp.midX, midZ: sp.midZ, h: p.h, yaw: step.ang + Math.PI * 0.5 };
+      }
+    }
+  }
+  return null;
+}
+
 export function unstuck(recipeId, seed, x, z, radius = RADIUS) {
   if (!blocked(recipeId, seed, x, z, radius)) return { x, z };
   const p = spawnPoint(recipeId, seed);
@@ -463,6 +760,8 @@ export function unstuck(recipeId, seed, x, z, radius = RADIUS) {
 }
 
 export function losClear(recipeId, seed, ax, az, bx, bz) {
+  const recipe = getRecipe(recipeId);
+  const pools = recipe.layout === "pools";
   const dx = bx - ax;
   const dz = bz - az;
   const dist = Math.hypot(dx, dz) || 1;
@@ -473,14 +772,18 @@ export function losClear(recipeId, seed, ax, az, bx, bz) {
     const z = az + dz * t;
     const { tx, tz } = worldToTile(x, z);
     const info = cellInfo(recipeId, seed, tx, tz);
-    if (info.pillar || info.solid) return false;
-    const lx = x - tx * TILE;
-    const lz = z - tz * TILE;
-    const edge = 0.08;
-    if (info.walls.w && lx < edge) return false;
-    if (info.walls.e && lx > TILE - edge) return false;
-    if (info.walls.s && lz < edge) return false;
-    if (info.walls.n && lz > TILE - edge) return false;
+    if (info.pillar || info.solid || info.blockR) return false;
+    const useSegs = !pools;
+    if (useSegs) {
+      const lx = x - tx * TILE;
+      const lz = z - tz * TILE;
+      const edge = 0.08;
+      if (info.walls.w && lx < edge) return false;
+      if (info.walls.e && lx > TILE - edge) return false;
+      if (info.walls.s && lz < edge) return false;
+      if (info.walls.n && lz > TILE - edge) return false;
+    }
+    if (pools && nearbyRoomHit(recipe, seed, x, z, 0.04)) return false;
   }
   return true;
 }

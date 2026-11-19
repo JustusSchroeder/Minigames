@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Site Null — Sky</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/demo.css" />
+    <style>
+      .blackout {
+        pointer-events: none;
+        position: absolute;
+        inset: 0;
+        z-index: 6;
+        background: #000;
+        opacity: 0;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app">
+      <canvas id="view"></canvas>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <div id="blackout" class="blackout" aria-hidden="true"></div>
+      <div id="eyelids" class="eyelids" aria-hidden="true">
+        <i class="lid top"></i>
+        <i class="lid bot"></i>
+        <i class="lid fade"></i>
+      </div>
+      <p id="look-hint" class="look-hint" hidden>Move mouse to look</p>
+
+      <div id="menu" class="overlay">
+        <div class="card">
+          <p class="kicker">Sandbox</p>
+          <h1>Sky</h1>
+          <button type="button" id="btn-enter" class="go">Fall</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="js/sky-demo.js"></script>
+  </body>
+</html>

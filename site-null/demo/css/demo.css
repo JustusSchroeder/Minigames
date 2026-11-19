@@ -1,0 +1,295 @@
+:root {
+  --ink: #e8e2d4;
+  --muted: #8c8678;
+  --paper: #12110f;
+  --card: rgba(16, 15, 13, 0.86);
+  --line: #3a342c;
+  --go: #c4b48a;
+  --go-ink: #16140f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #070706;
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+html:fullscreen,
+html:fullscreen body,
+html:fullscreen .app {
+  width: 100%;
+  height: 100%;
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#view {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.grain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  transition: opacity 0.12s linear;
+}
+
+.grain.hard {
+  opacity: 0.78;
+}
+
+.static {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
+}
+
+.static.on {
+  opacity: 0.42;
+  animation: static-roll 0.07s steps(2) infinite;
+}
+
+.whiteout {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: #fff8ea;
+  opacity: 0;
+}
+
+@keyframes static-roll {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-4%, 3%);
+  }
+}
+
+.vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+.eyelids {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.lid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: #060504;
+}
+
+.lid.top {
+  top: 0;
+  height: 56%;
+  transform: translateY(-102%);
+  box-shadow: 0 18px 28px rgba(0, 0, 0, 0.45);
+}
+
+.lid.bot {
+  bottom: 0;
+  height: 56%;
+  transform: translateY(102%);
+  box-shadow: 0 -18px 28px rgba(0, 0, 0, 0.45);
+}
+
+.lid.fade {
+  inset: 0;
+  height: auto;
+  opacity: 0;
+  background: #050403;
+}
+
+.place {
+  position: absolute;
+  left: 22px;
+  bottom: 22px;
+  margin: 0;
+  z-index: 4;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.place.on {
+  animation: place-in 1.6s ease forwards;
+}
+
+@keyframes place-in {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  18% {
+    opacity: 0.9;
+    transform: none;
+  }
+  100% {
+    opacity: 0.78;
+    transform: none;
+  }
+}
+
+.ticks[hidden],
+.place[hidden] {
+  display: none;
+}
+
+.ticks {
+  position: absolute;
+  right: 22px;
+  bottom: 24px;
+  z-index: 4;
+  display: flex;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.ticks i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(196, 180, 138, 0.22);
+}
+
+.ticks i.on {
+  background: #c4b48a;
+}
+
+.look-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 52px;
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 4;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  text-shadow: 0 1px 8px #000;
+}
+
+.look-hint[hidden] {
+  display: none;
+}
+
+html.looking,
+html.looking * {
+  cursor: none !important;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 5, 4, 0.72);
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.card {
+  width: min(400px, calc(100% - 32px));
+  padding: 28px 28px 22px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.card.slim {
+  width: min(320px, calc(100% - 32px));
+}
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+h1,
+h2 {
+  margin: 0 0 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+h1 {
+  font-size: 2rem;
+}
+
+h2 {
+  font-size: 1.45rem;
+}
+
+button,
+a.play {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  text-decoration: none;
+  text-align: center;
+}
+
+.go,
+.ghost {
+  display: block;
+  width: 100%;
+  padding: 11px 14px;
+  margin-bottom: 8px;
+}
+
+.go {
+  background: var(--go);
+  color: var(--go-ink);
+  font-weight: 700;
+}
+
+.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}

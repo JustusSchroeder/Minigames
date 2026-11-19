@@ -345,3 +345,135 @@ button {
   opacity: 1;
   transition: opacity 0.12s linear;
 }
+
+.admin {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 8;
+  width: min(268px, calc(100% - 32px));
+  padding: 12px 12px 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.admin[hidden] {
+  display: none;
+}
+
+html.looking .admin,
+html.looking .admin * {
+  cursor: pointer !important;
+}
+
+.admin-kicker {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--go);
+}
+
+.admin-levels {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-levels button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid transparent;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.admin-levels button:hover {
+  border-color: var(--line);
+  background: rgba(196, 180, 138, 0.08);
+}
+
+.admin-levels button.on {
+  border-color: var(--go);
+  color: var(--go);
+}
+
+.admin-levels button .n {
+  flex: 0 0 1.1em;
+  color: var(--muted);
+}
+
+.admin-levels button.on .n {
+  color: var(--go);
+}
+
+.admin-spawn {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-spawn > button {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-spawn > button:hover,
+.admin-spawn-kinds button:hover {
+  background: rgba(196, 180, 138, 0.08);
+}
+
+.admin-spawn > button.on {
+  border-color: var(--go);
+  color: var(--go);
+}
+
+.admin-spawn-kinds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+
+.admin-spawn-kinds button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+}
+
+.admin-spawn-kinds button .n {
+  flex: 0 0 1.1em;
+  color: var(--muted);
+}
+
+.admin-help {
+  margin: 8px 0 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.45;
+}

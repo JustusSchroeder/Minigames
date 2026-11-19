@@ -1,3 +1,23 @@
+const BANKS = {
+  footCarpet: ["assets/sfx/foot_carpet_0.ogg", "assets/sfx/foot_carpet_1.ogg", "assets/sfx/foot_carpet_2.ogg", "assets/sfx/foot_carpet_3.ogg"],
+  footConcrete: ["assets/sfx/foot_concrete_0.ogg", "assets/sfx/foot_concrete_1.ogg", "assets/sfx/foot_concrete_2.ogg", "assets/sfx/foot_concrete_3.ogg"],
+  footWood: ["assets/sfx/foot_wood_0.ogg", "assets/sfx/foot_wood_1.ogg", "assets/sfx/foot_wood_2.ogg", "assets/sfx/foot_wood_3.ogg"],
+  footWater: ["assets/sfx/foot_water_0.wav", "assets/sfx/foot_water_1.wav"],
+  rock: ["assets/sfx/rock_0.ogg", "assets/sfx/rock_1.ogg"],
+  chair: ["assets/sfx/chair_0.wav", "assets/sfx/woodhit_0.ogg", "assets/sfx/woodhit_1.ogg"],
+  scrape: ["assets/sfx/scrape_0.wav", "assets/sfx/metal_0.ogg", "assets/sfx/metal_1.ogg"],
+  metal: ["assets/sfx/metal_0.ogg", "assets/sfx/metal_1.ogg", "assets/sfx/metal_2.ogg"],
+  howl: ["assets/sfx/howl_0.wav", "assets/sfx/howl_1.wav"],
+  scream: ["assets/sfx/scream_0.wav"],
+  spot: ["assets/sfx/spot_0.wav", "assets/sfx/growl_0.wav"],
+  growl: ["assets/sfx/growl_0.wav", "assets/sfx/growl_1.wav", "assets/sfx/growl_2.wav"],
+  breath: ["assets/sfx/breath_0.wav", "assets/sfx/breath_1.wav"],
+  wake: ["assets/sfx/wake_0.wav", "assets/sfx/howl_1.wav"],
+  hunt: ["assets/sfx/hunt_0.wav", "assets/sfx/rock_0.ogg"],
+  whisper: ["assets/sfx/whisper_0.wav"],
+  drip: ["assets/sfx/drip_0.wav", "assets/sfx/drip_1.wav"],
+};
+
 export function createAudio() {
   let ctx = null;
   let master = null;
@@ -16,6 +36,8 @@ export function createAudio() {
   let t = 0;
   let nextEvent = 1.2;
   let noiseBuf = null;
+  const buffers = {};
+  let sampleLoad = null;
 
   function ensure() {
     if (ctx) return ctx;
@@ -80,7 +102,72 @@ export function createAudio() {
     jazzGain.connect(master);
     jazzOsc.start();
 
+    loadSamples();
     return ctx;
+  }
+
+  function loadSamples() {
+    if (sampleLoad || !ctx) return sampleLoad;
+    const cache = new Map();
+    sampleLoad = Promise.all(
+      Object.entries(BANKS).map(async ([bank, urls]) => {
+        const loaded = [];
+        for (const url of urls) {
+          try {
+            let buf = cache.get(url);
+            if (!buf) {
+              const res = await fetch(url);
+              if (!res.ok) continue;
+              buf = await ctx.decodeAudioData(await res.arrayBuffer());
+              cache.set(url, buf);
+            }
+            loaded.push(buf);
+          } catch {
+            /* synth fallback */
+          }
+        }
+        if (loaded.length) buffers[bank] = loaded;
+      }),
+    );
+    return sampleLoad;
+  }
+
+  function pick(bank) {
+    const list = buffers[bank];
+    if (!list?.length) return null;
+    return list[(Math.random() * list.length) | 0];
+  }
+
+  function playSample(bank, opts = {}) {
+    if (muted || !ctx) return false;
+    const buf = pick(bank);
+    if (!buf) return false;
+    const vol = opts.vol ?? 0.22;
+    const dist = opts.dist;
+    let gain = vol;
+    if (dist != null) {
+      const near = Math.max(0, 1 - dist / (opts.range ?? 12));
+      if (near < 0.08) return false;
+      gain *= near;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = (opts.rate ?? 1) * (0.94 + Math.random() * 0.12);
+    let node = src;
+    if (dist != null || opts.lowpass) {
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      const near = dist != null ? Math.max(0, 1 - dist / (opts.range ?? 12)) : 1;
+      lp.frequency.value = opts.lowpass ?? 380 + near * 2400;
+      src.connect(lp);
+      node = lp;
+    }
+    const g = ctx.createGain();
+    g.gain.value = Math.max(0.0001, gain);
+    node.connect(g);
+    g.connect(master);
+    src.start();
+    return true;
   }
 
   function tone(now, type, freq, vol, dur, dest = master) {
@@ -160,27 +247,47 @@ export function createAudio() {
   function foot(kind) {
     if (muted || !ensure()) return;
     const now = ctx.currentTime;
+    const rate = 0.97 + Math.random() * 0.06;
     if (kind === "water") {
-      burst(now, 0.06, 0.18, "lowpass", 700);
-      tone(now, "sine", 90, 0.03, 0.12);
+      if (!playSample("footWater", { vol: 0.26, rate })) {
+        burst(now, 0.06, 0.18, "lowpass", 700);
+        tone(now, "sine", 90, 0.03, 0.12);
+      } else {
+        burst(now, 0.02, 0.12, "lowpass", 500);
+      }
       return;
     }
-    if (kind === "concrete" || kind === "rock") {
-      burst(now, 0.045, 0.07, "highpass", 900);
-      tone(now, "triangle", kind === "rock" ? 95 : 140, 0.035, 0.07);
+    if (kind === "rock") {
+      if (!playSample("rock", { vol: 0.24, rate: rate * 0.92 }) && !playSample("footConcrete", { vol: 0.2, rate: rate * 0.88 })) {
+        burst(now, 0.045, 0.07, "highpass", 900);
+        tone(now, "triangle", 95, 0.035, 0.07);
+      }
       return;
     }
-    if (kind === "tile") {
-      tone(now, "triangle", 210, 0.03, 0.05);
-      burst(now, 0.02, 0.05, "highpass", 1800);
+    if (kind === "concrete") {
+      if (!playSample("footConcrete", { vol: 0.22, rate })) {
+        burst(now, 0.045, 0.07, "highpass", 900);
+        tone(now, "triangle", 140, 0.035, 0.07);
+      }
+      return;
+    }
+    if (kind === "tile" || kind === "checker") {
+      if (!playSample("footConcrete", { vol: 0.18, rate: rate * 1.14 })) {
+        tone(now, "triangle", 210, 0.03, 0.05);
+        burst(now, 0.02, 0.05, "highpass", 1800);
+      }
       return;
     }
     if (kind === "wood") {
-      tone(now, "triangle", 160, 0.04, 0.08);
+      if (!playSample("footWood", { vol: 0.24, rate })) {
+        tone(now, "triangle", 160, 0.04, 0.08);
+      }
       return;
     }
-    burst(now, 0.028, 0.09, "lowpass", 420);
-    tone(now, "sine", 105, 0.02, 0.08);
+    if (!playSample("footCarpet", { vol: 0.28, rate })) {
+      burst(now, 0.028, 0.09, "lowpass", 420);
+      tone(now, "sine", 105, 0.02, 0.08);
+    }
   }
 
   function blink() {
@@ -190,46 +297,59 @@ export function createAudio() {
 
   function chair() {
     if (muted || !ensure()) return;
-    burst(ctx.currentTime, 0.045, 0.22, "bandpass", 280, 1.4);
-    tone(ctx.currentTime, "sawtooth", 70, 0.02, 0.2);
+    if (!playSample("chair", { vol: 0.2, rate: 0.9 + Math.random() * 0.15 })) {
+      burst(ctx.currentTime, 0.045, 0.22, "bandpass", 280, 1.4);
+      tone(ctx.currentTime, "sawtooth", 70, 0.02, 0.2);
+    }
   }
 
   function scrape() {
     if (muted || !ensure()) return;
-    burst(ctx.currentTime, 0.05, 0.35, "bandpass", 160, 0.9);
-    tone(ctx.currentTime, "sawtooth", 48, 0.03, 0.32);
+    if (!playSample("scrape", { vol: 0.22, rate: 0.82 + Math.random() * 0.12, lowpass: 1400 })) {
+      burst(ctx.currentTime, 0.05, 0.35, "bandpass", 160, 0.9);
+      tone(ctx.currentTime, "sawtooth", 48, 0.03, 0.32);
+    }
   }
 
   function mannequin(dist = 6) {
     if (muted || !ensure()) return;
-    const vol = Math.max(0.15, 1 - dist / 11);
-    burst(ctx.currentTime, 0.04 * vol, 0.28, "highpass", 1100);
-    tone(ctx.currentTime, "square", 62, 0.012 * vol, 0.18);
+    if (!playSample("metal", { vol: 0.16, dist, range: 11, rate: 0.78 + Math.random() * 0.1 })) {
+      const vol = Math.max(0.15, 1 - dist / 11);
+      burst(ctx.currentTime, 0.04 * vol, 0.28, "highpass", 1100);
+      tone(ctx.currentTime, "square", 62, 0.012 * vol, 0.18);
+    }
   }
 
   function whisper(scale = 1) {
     if (muted || !ensure()) return;
-    const now = ctx.currentTime;
-    burst(now, 0.03 * scale, 0.7, "bandpass", 1400 + Math.random() * 400, 2.2);
-    tone(now, "sine", 180 + Math.random() * 50, 0.02 * scale, 0.55);
+    if (!playSample("whisper", { vol: 0.12 * scale, rate: 0.85 + Math.random() * 0.2, lowpass: 1800 })) {
+      const now = ctx.currentTime;
+      burst(now, 0.03 * scale, 0.7, "bandpass", 1400 + Math.random() * 400, 2.2);
+      tone(now, "sine", 180 + Math.random() * 50, 0.02 * scale, 0.55);
+    }
   }
 
   function howl() {
     if (muted || !ensure()) return;
-    const now = ctx.currentTime;
-    const o = tone(now, "sine", 340, 0.035, 1.4);
-    if (o) o.frequency.exponentialRampToValueAtTime(90, now + 1.25);
+    if (!playSample("howl", { vol: 0.34, rate: 0.92 + Math.random() * 0.1 })) {
+      const now = ctx.currentTime;
+      const o = tone(now, "sine", 340, 0.035, 1.4);
+      if (o) o.frequency.exponentialRampToValueAtTime(90, now + 1.25);
+    }
   }
 
   function wake() {
     if (muted || !ensure()) return;
-    const now = ctx.currentTime;
-    tone(now, "sawtooth", 180, 0.04, 1.1);
-    burst(now, 0.03, 0.8, "lowpass", 240);
+    if (!playSample("wake", { vol: 0.28, rate: 0.88 + Math.random() * 0.12 })) {
+      const now = ctx.currentTime;
+      tone(now, "sawtooth", 180, 0.04, 1.1);
+      burst(now, 0.03, 0.8, "lowpass", 240);
+    }
   }
 
   function hunt(dist) {
     if (muted || !ensure()) return;
+    if (playSample("hunt", { vol: 0.18, dist, range: 10, rate: 0.9 })) return;
     const vol = Math.max(0, 1 - dist / 10) * 0.05;
     if (vol < 0.004) return;
     burst(ctx.currentTime, vol, 0.12, "lowpass", 180);
@@ -238,6 +358,7 @@ export function createAudio() {
 
   function lurkNear(dist) {
     if (muted || !ensure()) return;
+    if (playSample("breath", { vol: 0.2, dist, range: 14, rate: 0.78 + Math.random() * 0.12 })) return;
     const vol = Math.max(0, 1 - dist / 14);
     if (vol < 0.08) return;
     burst(ctx.currentTime, 0.04 * vol, 0.28, "bandpass", 90 + Math.random() * 70, 1.4);
@@ -246,6 +367,7 @@ export function createAudio() {
 
   function spot() {
     if (muted || !ensure()) return;
+    if (playSample("spot", { vol: 0.3, rate: 1.02 + Math.random() * 0.08 })) return;
     const now = ctx.currentTime;
     burst(now, 0.09, 0.18, "highpass", 1400);
     tone(now, "square", 220, 0.04, 0.16);
@@ -260,6 +382,12 @@ export function createAudio() {
     master.gain.setValueAtTime(Math.max(prev, 0.15), now);
     master.gain.linearRampToValueAtTime(0.42, now + 0.04);
     master.gain.exponentialRampToValueAtTime(0.15, now + 1.35);
+
+    if (playSample("scream", { vol: 0.55, rate: 0.96 + Math.random() * 0.08 })) {
+      burst(now, 0.18, 0.12, "lowpass", 180);
+      tone(now, "sine", 42, 0.12, 0.45);
+      return;
+    }
 
     burst(now, 0.55, 0.12, "lowpass", 180);
     burst(now, 0.38, 0.7, "bandpass", 1800, 0.55);
@@ -295,6 +423,7 @@ export function createAudio() {
 
   function guestNear(dist) {
     if (muted || !ensure()) return;
+    if (playSample("growl", { vol: 0.16, dist, range: 12, rate: 0.86 + Math.random() * 0.16 })) return;
     const vol = Math.max(0, 1 - dist / 12);
     if (vol < 0.08) return;
     burst(ctx.currentTime, 0.035 * vol, 0.2, "bandpass", 220, 1.1);
@@ -324,26 +453,38 @@ export function createAudio() {
     if (nextEvent > 0) return;
     if (recipeId === "pipes") {
       nextEvent = 1.6 + Math.random() * 2.4;
-      burst(now, 0.06, 0.45, "bandpass", 480 + Math.random() * 220, 0.6);
-      tone(now, "sine", 55, 0.02, 0.3);
+      if (!playSample(Math.random() < 0.55 ? "drip" : "metal", { vol: 0.12, rate: 0.85 + Math.random() * 0.2, lowpass: 900 })) {
+        burst(now, 0.06, 0.45, "bandpass", 480 + Math.random() * 220, 0.6);
+        tone(now, "sine", 55, 0.02, 0.3);
+      }
     } else if (recipeId === "caves") {
       nextEvent = 0.7 + Math.random() * 1.8;
-      burst(now, 0.045, 0.12, "lowpass", 1600);
-      burst(now + 0.09, 0.028, 0.14, "lowpass", 1400);
-      burst(now + 0.2, 0.016, 0.16, "lowpass", 1100);
+      if (!playSample("drip", { vol: 0.14, rate: 0.9 + Math.random() * 0.2, lowpass: 1200 })) {
+        burst(now, 0.045, 0.12, "lowpass", 1600);
+        burst(now + 0.09, 0.028, 0.14, "lowpass", 1400);
+        burst(now + 0.2, 0.016, 0.16, "lowpass", 1100);
+      }
     } else if (recipeId === "poolrooms") {
       nextEvent = 1.1 + Math.random() * 2;
-      burst(now, 0.035, 0.22, "lowpass", 900);
+      if (!playSample("drip", { vol: 0.11, rate: 1.05 + Math.random() * 0.15, lowpass: 1600 })) {
+        burst(now, 0.035, 0.22, "lowpass", 900);
+      }
     } else if (recipeId === "office") {
       nextEvent = 4 + Math.random() * 6;
-      burst(now, 0.02, 0.35, "lowpass", 700);
+      if (!playSample("chair", { vol: 0.07, rate: 0.7, lowpass: 700 })) {
+        burst(now, 0.02, 0.35, "lowpass", 700);
+      }
     } else if (recipeId === "hotel") {
       nextEvent = 5 + Math.random() * 8;
       if (Math.random() < 0.45) whisper(0.45);
-      else burst(now, 0.018, 0.4, "bandpass", 900, 1.6);
+      else if (!playSample("chair", { vol: 0.08, rate: 0.65, lowpass: 900 })) {
+        burst(now, 0.018, 0.4, "bandpass", 900, 1.6);
+      }
     } else if (recipeId === "habitable") {
       nextEvent = 6 + Math.random() * 8;
-      burst(now, 0.02, 0.3, "lowpass", 200);
+      if (!playSample("metal", { vol: 0.06, rate: 0.6, lowpass: 400 })) {
+        burst(now, 0.02, 0.3, "lowpass", 200);
+      }
     } else {
       nextEvent = 8 + Math.random() * 10;
     }
@@ -351,6 +492,7 @@ export function createAudio() {
 
   function resume() {
     ensure()?.resume();
+    loadSamples();
     if (master && !muted) master.gain.setTargetAtTime(0.15, ctx.currentTime, 0.05);
   }
 

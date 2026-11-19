@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Site Null</title>
+    <script>
+      if (!new URLSearchParams(location.search).has("play")) {
+        location.replace(new URL("demo/", location.href).href);
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -37,6 +42,15 @@
       <p id="place" class="place" hidden></p>
       <p id="prompt" class="prompt" hidden></p>
       <p id="look-hint" class="look-hint">Click to look around</p>
+      <div id="admin" class="admin" hidden>
+        <p class="admin-kicker">Admin</p>
+        <div id="admin-levels" class="admin-levels"></div>
+        <div class="admin-spawn">
+          <button type="button" id="admin-spawn-toggle">Spawn mode</button>
+          <div id="admin-spawn-kinds" class="admin-spawn-kinds"></div>
+        </div>
+        <p id="admin-help" class="admin-help">1–7 jump · , . cycle · 0 reroll · G geom · F9</p>
+      </div>
       <div id="jumpscare" class="jumpscare" hidden>
         <img src="assets/jumpscare.png" alt="" />
       </div>

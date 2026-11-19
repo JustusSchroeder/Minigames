@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Site Null</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/demo.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="app">
+      <canvas id="view"></canvas>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+      <div id="static" class="static" aria-hidden="true"></div>
+      <div id="whiteout" class="whiteout" aria-hidden="true"></div>
+      <div id="eyelids" class="eyelids" aria-hidden="true">
+        <i class="lid top"></i>
+        <i class="lid bot"></i>
+        <i class="lid fade"></i>
+      </div>
+      <p id="place" class="place" hidden></p>
+      <div id="ticks" class="ticks" hidden></div>
+      <p id="look-hint" class="look-hint" hidden>Move mouse to look</p>
+
+      <div id="menu" class="overlay">
+        <div class="card">
+          <p class="kicker">Uncatalogued</p>
+          <h1>Site Null</h1>
+          <button type="button" id="btn-enter" class="go">Enter</button>
+        </div>
+      </div>
+
+      <div id="end" class="overlay" hidden>
+        <div class="card slim">
+          <p class="kicker">Uncatalogued</p>
+          <h2>Site Null</h2>
+          <a class="go play" href="../index.html?play=1">Play</a>
+          <button type="button" id="btn-again" class="ghost">Again</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="js/demo.js?v=sky2"></script>
+  </body>
+</html>

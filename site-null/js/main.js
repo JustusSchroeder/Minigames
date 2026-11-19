@@ -21,6 +21,11 @@ const ui = {
   btnFull: document.getElementById("btn-full"),
   btnFullPause: document.getElementById("btn-full-pause"),
   btnHub: document.getElementById("btn-hub"),
+  admin: document.getElementById("admin"),
+  adminLevels: document.getElementById("admin-levels"),
+  adminHelp: document.getElementById("admin-help"),
+  adminSpawnToggle: document.getElementById("admin-spawn-toggle"),
+  adminSpawnKinds: document.getElementById("admin-spawn-kinds"),
 };
 
 createGame(ui);

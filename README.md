@@ -12,7 +12,7 @@ A small GitHub Pages arcade with more than one browser game, plus two Mac apps (
 | Castle defense | `castle-defense/` | [Open](https://justusschroeder.github.io/Minigames/castle-defense/) |
 | Meridian Front | `meridian-front/` | [Open](https://justusschroeder.github.io/Minigames/meridian-front/) |
 | Mini 8-Ball | `mini-8-ball/` | [Open](https://justusschroeder.github.io/Minigames/mini-8-ball/) |
-| Site Null | `site-null/` | [Open](https://justusschroeder.github.io/Minigames/site-null/) |
+| Site Null | `site-null/` | [Open](https://justusschroeder.github.io/Minigames/site-null/demo/) |
 
 The home page lists each game as a card, with a preview image and an English / German language toggle. Mac apps have their own cards that open a README-style overview (how the project works, not a playable page).
 
